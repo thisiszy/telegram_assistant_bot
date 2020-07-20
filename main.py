@@ -20,15 +20,17 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Initial bot by Telegram access token
-proxy = telegram.utils.request.Request(proxy_url='socks5://127.0.0.1:1025')
-bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']), request=proxy)
+# proxy = telegram.utils.request.Request(proxy_url='socks5://127.0.0.1:1025')
+# bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']), request=proxy)
+bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']))
 
 # Initial database
 mydb = mysql.connector.connect(
   host="localhost",
   user=config['MYSQL']['USER_NAME'],
   password=config['MYSQL']['PASSWORD'],
-  database="mydatabase"
+  database="mydatabase",
+  auth_plugin="mysql_native_password"
 )
 mycursor = mydb.cursor()
 
@@ -96,6 +98,7 @@ def command_phrase(text, update):
 
 def reply_handler(bot, update):
     """Reply message."""
+    print(update)
     text = update.message.text.split(' ')[0]
     command_phrase(text, update)
 
