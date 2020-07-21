@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Initial bot by Telegram access token
-proxy = telegram.utils.request.Request(proxy_url='socks5://127.0.0.1:1025')
-bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']), request=proxy)
-# bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']))
+# proxy = telegram.utils.request.Request(proxy_url='socks5://127.0.0.1:1025')
+# bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']), request=proxy)
+bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']))
 
 # Initial database
 mydb = mysql.connector.connect(
@@ -45,6 +45,11 @@ def webhook_handler():
         # Update dispatcher process that handler to process this message
         dispatcher.process_update(update)
     return 'ok'
+
+
+@app.route('/test')
+def test_handler():
+    return 'Hello World!'
 
 
 def getgpa(update):
@@ -94,11 +99,11 @@ def get_sysinfo(update):
     message = "*[memory]*" + "\n"\
               + "*total:* " + str(format(mem.total/1048576, '.1f')) + " MB" + "\n"\
               + "*used: *" + str(format(mem.used/1048576, '.1f')) + " MB" + "\n"\
-              + "*percent: *" + str(format(mem.percent, '.1f')) + "%" + "\n"\
+              + "*percent: *" + str(format(mem.used/mem.total, '.1f')) + "%" + "\n"\
               + "*[swap]*" + "\n"\
               + "*total:* " + str(format(swap.total/1048576, '.1f')) + " MB" + "\n"\
               + "*used: *" + str(format(swap.used/1048576, '.1f')) + " MB" + "\n"\
-              + "*percent: *" + str(format(swap.percent, '.1f')) + "%" + "\n"\
+              + "*percent: *" + str(format(swap.used/swap.total, '.1f')) + "%" + "\n"\
               + "*[disk]*" + "\n"\
               + "*total:* " + str(format(disk.total/1073741824, '.1f')) + " GB" + "\n"\
               + "*used: *" + str(format(disk.used/1073741824, '.1f')) + " GB" + "\n"\
@@ -147,4 +152,7 @@ dispatcher.add_handler(MessageHandler(Filters.group, group_reply_handler))
 
 if __name__ == "__main__":
     # Running server
-    app.run(debug=True)
+    app.run(# host = '45.77.12.24',
+            #  port = 443,
+            debug=True
+    )
