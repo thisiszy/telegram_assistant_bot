@@ -37,6 +37,15 @@ from googleapiclient.errors import HttpError
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
+# Set up the SQLite database
+import sqlite3
+conn = sqlite3.connect('calendar.db')
+c = conn.cursor()
+c.execute('''
+    CREATE TABLE IF NOT EXISTS tokens
+    (user_id INTEGER PRIMARY KEY, token TEXT, credentials TEXT)
+''')
+
 chatbot = Chatbot(config={
   "access_token": config['OPENAI']['ACCESS_TOKEN_CHATGPT']
 })
@@ -123,7 +132,7 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return WAITING
 
 
-BASE_PROMPT = 'Extract the activity name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, start time and end time is mandatory. 3. start time and end time should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}. 4. If there is no end time extracted, you can assume the end time is one hour later than the start time. 5. Your response should only contain the extracted information in that format and do not contain "Explanation", "Note" or something else.'
+BASE_PROMPT = 'Extract the activity name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, start time and end time is mandatory. 3. start time and end time should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}. 4. If there is no end time extracted, you can assume the end time is one hour later than the start time. 5. Your response do not contain "Explanation", "Note" or something else.'
 
 async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = None
@@ -142,19 +151,18 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
             logging.debug(f"Recognized text: {result['text']}")
             prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         if prompt is not None:
-            # logging.debug(f"Prompt: {prompt}")
-            # if place_holder is not None:
-            #     await context.bot.edit_message_text(
-            #         chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Thinking..."
-            #     )
-            # else:
-            #     place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
+            logging.debug(f"Prompt: {prompt}")
+            if place_holder is not None:
+                await context.bot.edit_message_text(
+                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Thinking..."
+                )
+            else:
+                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
 
-            # for data in chatbot.ask(prompt):
-            #     response = data["message"]
-            # logging.info(f"Response: {response}")
-            place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
-            response = '{"name": "Career Counseling with Goldwyn", "place": "Online", "stime": "2023-02-24 09:00:00", "etime": "2023-02-24 16:00:00"}'
+            for data in chatbot.ask(prompt):
+                response = data["message"]
+            logging.info(f"Response: {response}")
+            response.replace("\n", "")
             pattern = re.compile(r'{"name":.*, "place":.*, "stime":.*, "etime":.*}', flags=0)
             matched = pattern.findall(response)
             if len(matched) > 0:
@@ -192,7 +200,7 @@ async def modify_calender_callback(update: Update, context: ContextTypes.DEFAULT
     orig_text, event = context.user_data["message"]
     try:
         if update.callback_query.data == "Y":
-            modify_calender(orig_text, json.loads(event))
+            modify_calender(orig_text, json.loads(event), update.effective_chat.id)
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Canceled\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
@@ -202,28 +210,36 @@ async def modify_calender_callback(update: Update, context: ContextTypes.DEFAULT
     finally:
         return ConversationHandler.END
 
-def check_crediential():
+def update_token_crediential(user_id, secret):
     creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
+    # The database stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    c.execute('SELECT token, credentials FROM tokens WHERE user_id = ?', (user_id,))
+    result = c.fetchone()
+    if result:
+        creds = Credentials.from_authorized_user_info(json.loads(result[1]), SCOPES)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+            if secret is not None:
+                flow = InstalledAppFlow.from_client_config(json.loads(secret), SCOPES)
+            else:
+                if result:
+                    secret = result[0]
+                    flow = InstalledAppFlow.from_client_config(json.loads(secret), SCOPES)
+                else:
+                    return None
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        c.execute('INSERT OR REPLACE INTO tokens (user_id, token, credentials) VALUES (?, ?, ?)', (user_id, secret, creds.to_json()))
+        conn.commit()
     return creds
 
-def modify_calender(orig_text, event):
-    creds = check_crediential()
+def modify_calender(orig_text, event, user_id):
+    creds = update_token_crediential(user_id, None)
 
     try:
         # get the local time zone

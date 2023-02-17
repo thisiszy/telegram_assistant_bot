@@ -4,8 +4,9 @@ import logging
 
 # use google calendar
 import datetime
-import os.path
+import json
 
+import sqlite3
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -15,13 +16,21 @@ from googleapiclient.errors import HttpError
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
+# Set up the SQLite database
+conn = sqlite3.connect('calendar.db')
+c = conn.cursor()
+c.execute('''
+    CREATE TABLE IF NOT EXISTS tokens
+    (user_id INTEGER PRIMARY KEY, token TEXT, credentials TEXT)
+''')
+
 def get_info():
     return {
-        "name": "modify_calender", 
+        "name": "calender", 
         "version": "1.0.0", 
         "author": "thisiszy",
-        "description": "*view, edit your google calender items*: view your next events by /events",
-        "commands": ["events"]
+        "description": "*view, edit your google calender items*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>",
+        "commands": ["events", "auth"]
     }
 
 def get_handlers(command_list):
@@ -38,28 +47,43 @@ def get_handlers(command_list):
     logging.log(logging.INFO, f"Loaded plugin {info['name']}, commands: {loaded_commands}")
     return handlers, info
 
-def list_events():
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
+
+def update_token_crediential(user_id, secret):
     creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
+    # The database stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    c.execute('SELECT token, credentials FROM tokens WHERE user_id = ?', (user_id,))
+    result = c.fetchone()
+    if result:
+        creds = Credentials.from_authorized_user_info(json.loads(result[1]), SCOPES)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+            if secret is not None:
+                flow = InstalledAppFlow.from_client_config(json.loads(secret), SCOPES)
+            else:
+                if result:
+                    secret = result[0]
+                    flow = InstalledAppFlow.from_client_config(json.loads(secret), SCOPES)
+                else:
+                    return None
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        c.execute('INSERT OR REPLACE INTO tokens (user_id, token, credentials) VALUES (?, ?, ?)', (user_id, secret, creds.to_json()))
+        conn.commit()
+    return creds
 
+
+def list_events(user_id):
+    """Shows basic usage of the Google Calendar API.
+    Prints the start and name of the next 10 events on the user's calendar.
+    """
+    creds = update_token_crediential(user_id, None)
+    if creds is None:
+        return "Please authorize the bot to access your Google Calendar by /auth <secret token>"
     try:
         service = build('calendar', 'v3', credentials=creds)
 
@@ -84,5 +108,13 @@ def list_events():
         return f'An error occurred: {error}'
 
 async def events(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    result = list_events()
+    result = list_events(update.effective_chat.id)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
+
+async def auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    token = update.message.text.strip("/auth ")
+    creds = update_token_crediential(update.effective_chat.id, token)
+    if creds is None:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Token invalid")
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Token saved")
