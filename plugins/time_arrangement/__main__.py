@@ -79,14 +79,14 @@ def get_handlers(command_list):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Now you can send me the text message, and I will answer your question.\n\n"
+        "Send me text or audio, I can arrange time for you.\n\n"
     )
     return WAITING
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
     await update.message.reply_text(
-        "Bye! Looking forward to chat with you next time."
+        "Canceled."
     )
     return ConversationHandler.END
 
@@ -108,10 +108,10 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if prompt is not None:
             if place_holder is not None:
                 await context.bot.edit_message_text(
-                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Thinking..."
+                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Parsing..."
                 )
             else:
-                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
+                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Parsing...", reply_to_message_id=update.message.message_id)
             gpt_model = "text-davinci-003"
             temperature = 0.5
             max_tokens = 4000
@@ -175,10 +175,10 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
             logging.debug(f"Prompt: {prompt}")
             if place_holder is not None:
                 await context.bot.edit_message_text(
-                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Thinking..."
+                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Parsing..."
                 )
             else:
-                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
+                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Parsing...", reply_to_message_id=update.message.message_id)
 
             for data in chatbot.ask(prompt):
                 response = data["message"]
