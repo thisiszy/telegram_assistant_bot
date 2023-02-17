@@ -4,7 +4,7 @@ from api import get_handlers
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 
 from telegram import Update
-from telegram.ext import filters, MessageHandler, ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

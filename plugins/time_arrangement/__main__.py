@@ -50,6 +50,8 @@ chatbot = Chatbot(config={
   "access_token": config['OPENAI']['ACCESS_TOKEN_CHATGPT']
 })
 
+BASE_PROMPT = 'Extract the activity name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, start time and end time is mandatory. 3. start time and end time should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}. 4. If there is no end time extracted, you can assume the end time is one hour later than the start time. 5. Your response do not contain "Explanation", "Note" or something else.'
+
 def get_info():
     return {
         "name": "time_arrangement", 
@@ -93,16 +95,16 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     place_holder = None
     try:
         if update.message.text is not None:
-            prompt = update.message.text
+            prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         if update.message.voice is not None:
             place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...", reply_to_message_id=update.message.message_id)
             file = await update.message.voice.get_file()
             audio_file_path = os.path.join(AUDIO_FILE_PATH, file.file_id)
             await file.download_to_drive(audio_file_path)
-            result = model.transcribe(audio_file_path)
             logging.log(logging.INFO, f"Received audio file: {audio_file_path}")
+            result = model.transcribe(audio_file_path)
             logging.log(logging.INFO, f"Recognized text: {result['text']}")
-            prompt = result["text"]
+            prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         if prompt is not None:
             if place_holder is not None:
                 await context.bot.edit_message_text(
@@ -115,24 +117,43 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
             max_tokens = 4000
 
             # Generate a response
+            breakpoint()
             response = openai.Completion.create(
                 engine=gpt_model,
                 prompt=prompt,
                 temperature=temperature,
                 max_tokens=max_tokens
             )
-            await context.bot.edit_message_text(
-                chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=response.choices[0].text.strip()
-            )
-            # await context.bot.send_message(chat_id=update.effective_chat.id, text=response.choices[0].text.strip())
-            return ADDING
+            response = response.choices[0].text.strip()
+            logging.info(f"Response: {response}")
+            response = response.replace("\n", "")
+            pattern = re.compile(r'{ *"name":.*, *"place":.*, *"stime":.*, *"etime":.*}', flags=0)
+            matched = pattern.findall(response)
+            if len(matched) > 0:
+                keyboard = [
+                    [
+                        InlineKeyboardButton("Apply", callback_data="Y"),
+                        InlineKeyboardButton("Cancel", callback_data="N"),
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                context.user_data["message"] = (update.message.text, matched[0], place_holder.message_id)
+                await context.bot.edit_message_text(
+                    chat_id=place_holder.chat_id,
+                    message_id=place_holder.message_id,
+                    text=matched[0],
+                    reply_markup=reply_markup
+                )
+                return ADDING
+            else:
+                await context.bot.edit_message_text(
+                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Not matched: {response}"
+                )
+                return WAITING
     except Exception as e:
         logging.log(logging.ERROR, f"Error: {e}")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Error {e}", reply_to_message_id=update.message.message_id)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Error f{e}", reply_to_message_id=update.message.message_id)
         return WAITING
-
-
-BASE_PROMPT = 'Extract the activity name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, start time and end time is mandatory. 3. start time and end time should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}. 4. If there is no end time extracted, you can assume the end time is one hour later than the start time. 5. Your response do not contain "Explanation", "Note" or something else.'
 
 async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = None
@@ -169,10 +190,10 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
                 keyboard = [
                     [
                         InlineKeyboardButton("Apply", callback_data="Y"),
-                        InlineKeyboardButton("Restart", callback_data="N"),
+                        InlineKeyboardButton("Cancel", callback_data="N"),
                     ]
                 ]
-                context.user_data["message"] = (update.message.text, response, place_holder.message_id)
+                context.user_data["message"] = (update.message.text, matched[0], place_holder.message_id)
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await context.bot.edit_message_text(
                     chat_id=place_holder.chat_id,
