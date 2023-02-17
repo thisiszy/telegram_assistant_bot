@@ -132,8 +132,8 @@ dmypy.json
 .idea
 
 # project
-*
-!GPASpider.py
-!main.py
-!README.md
-!LICENSE
+*.ipynb
+*.ini
+*.json
+*.db
+env
