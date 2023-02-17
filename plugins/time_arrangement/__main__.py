@@ -1,9 +1,11 @@
-from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler, filters, ConversationHandler, MessageHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes, CommandHandler, filters, ConversationHandler, MessageHandler, CallbackQueryHandler
 import logging
 import configparser
 from datetime import datetime
 import json
+from datetime import datetime
+from tzlocal import get_localzone
 import re
 # import openai GPT-3 token
 import openai
@@ -49,14 +51,15 @@ def get_info():
         "message_type": ["text", "audio"]
     }
 
-RUNNING = 1
+WAITING, ADDING = range(2)
 
 def get_handlers(command_list):
     info = get_info()
     handlers = [ConversationHandler(
         entry_points=[CommandHandler("schedule", start)],
         states={
-            RUNNING: [MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.VOICE, arrange_time_chatgpt)],
+            WAITING: [MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.VOICE, arrange_time_chatgpt)],
+            ADDING: [CallbackQueryHandler(modify_calender_callback)],
         },
         fallbacks=[CommandHandler("stopschedule", cancel)],
     )]
@@ -67,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Now you can send me the text message, and I will answer your question.\n\n"
     )
-    return RUNNING
+    return WAITING
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
@@ -83,7 +86,7 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.message.text is not None:
             prompt = update.message.text
         if update.message.voice is not None:
-            place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...")
+            place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...", reply_to_message_id=update.message.message_id)
             file = await update.message.voice.get_file()
             audio_file_path = os.path.join(AUDIO_FILE_PATH, file.file_id)
             await file.download_to_drive(audio_file_path)
@@ -97,7 +100,7 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Thinking..."
                 )
             else:
-                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...")
+                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
             gpt_model = "text-davinci-003"
             temperature = 0.5
             max_tokens = 4000
@@ -113,10 +116,12 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=response.choices[0].text.strip()
             )
             # await context.bot.send_message(chat_id=update.effective_chat.id, text=response.choices[0].text.strip())
+            return ADDING
     except Exception as e:
         logging.log(logging.ERROR, f"Error: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Error {e}", reply_to_message_id=update.message.message_id)
-    return RUNNING
+        return WAITING
+
 
 BASE_PROMPT = 'Extract the activity name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, start time and end time is mandatory. 3. start time and end time should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}. 4. If there is no end time extracted, you can assume the end time is one hour later than the start time. 5. Your response should only contain the extracted information in that format and do not contain "Explanation", "Note" or something else.'
 
@@ -128,7 +133,7 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
         if update.message.text is not None:
             prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         if update.message.voice is not None:
-            place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...")
+            place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...", reply_to_message_id=update.message.message_id)
             file = await update.message.voice.get_file()
             audio_file_path = os.path.join(AUDIO_FILE_PATH, file.file_id)
             await file.download_to_drive(audio_file_path)
@@ -137,31 +142,65 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
             logging.debug(f"Recognized text: {result['text']}")
             prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         if prompt is not None:
-            logging.debug(f"Prompt: {prompt}")
-            if place_holder is not None:
-                await context.bot.edit_message_text(
-                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Thinking..."
-                )
-            else:
-                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...")
+            # logging.debug(f"Prompt: {prompt}")
+            # if place_holder is not None:
+            #     await context.bot.edit_message_text(
+            #         chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Thinking..."
+            #     )
+            # else:
+            #     place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
 
-            for data in chatbot.ask(prompt):
-                response = data["message"]
-            logging.info(f"Response: {response}")
-
+            # for data in chatbot.ask(prompt):
+            #     response = data["message"]
+            # logging.info(f"Response: {response}")
+            place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
+            response = '{"name": "Career Counseling with Goldwyn", "place": "Online", "stime": "2023-02-24 09:00:00", "etime": "2023-02-24 16:00:00"}'
             pattern = re.compile(r'{"name":.*, "place":.*, "stime":.*, "etime":.*}', flags=0)
             matched = pattern.findall(response)
             if len(matched) > 0:
-                response = matched[0]
-                modify_calender(update.message.text, json.loads(response))
-
-            await context.bot.edit_message_text(
-                chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=response
-            )
+                keyboard = [
+                    [
+                        InlineKeyboardButton("Apply", callback_data="Y"),
+                        InlineKeyboardButton("Restart", callback_data="N"),
+                    ]
+                ]
+                context.user_data["message"] = (update.message.text, response)
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await context.bot.edit_message_text(
+                    chat_id=place_holder.chat_id,
+                    message_id=place_holder.message_id,
+                    text=matched[0],
+                )
+                await context.bot.edit_message_reply_markup(
+                    chat_id=place_holder.chat_id,
+                    message_id=place_holder.message_id,
+                    reply_markup=reply_markup
+                )
+                return ADDING
+            else:
+                await context.bot.edit_message_text(
+                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Not matched: {response}"
+                )
+                return WAITING
     except Exception as e:
         logging.log(logging.ERROR, f"Error: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}, Response: {response}", reply_to_message_id=update.message.message_id)
-    return RUNNING
+
+        return WAITING
+
+async def modify_calender_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    orig_text, event = context.user_data["message"]
+    try:
+        if update.callback_query.data == "Y":
+            modify_calender(orig_text, json.loads(event))
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Canceled\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
+    except Exception as e:
+        logging.log(logging.ERROR, f"Error: {e}")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}, Event: {event}\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
+    finally:
+        return ConversationHandler.END
 
 def check_crediential():
     creds = None
@@ -184,31 +223,9 @@ def check_crediential():
     return creds
 
 def modify_calender(orig_text, event):
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+    creds = check_crediential()
 
     try:
-        from datetime import datetime
-        from tzlocal import get_localzone
-
         # get the local time zone
         timezone = datetime.now().astimezone().tzinfo
         timezone_str = str(get_localzone())
