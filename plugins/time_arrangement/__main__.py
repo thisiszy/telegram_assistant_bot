@@ -162,8 +162,8 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
             for data in chatbot.ask(prompt):
                 response = data["message"]
             logging.info(f"Response: {response}")
-            response.replace("\n", "")
-            pattern = re.compile(r'{"name":.*, "place":.*, "stime":.*, "etime":.*}', flags=0)
+            response = response.replace("\n", "")
+            pattern = re.compile(r'{ *"name":.*, *"place":.*, *"stime":.*, *"etime":.*}', flags=0)
             matched = pattern.findall(response)
             if len(matched) > 0:
                 keyboard = [
@@ -172,7 +172,7 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
                         InlineKeyboardButton("Restart", callback_data="N"),
                     ]
                 ]
-                context.user_data["message"] = (update.message.text, response)
+                context.user_data["message"] = (update.message.text, response, place_holder.message_id)
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await context.bot.edit_message_text(
                     chat_id=place_holder.chat_id,
@@ -197,16 +197,16 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
         return WAITING
 
 async def modify_calender_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    orig_text, event = context.user_data["message"]
+    orig_text, event, message_id = context.user_data["message"]
     try:
         if update.callback_query.data == "Y":
             modify_calender(orig_text, json.loads(event), update.effective_chat.id)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", message_id=message_id)
         else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Canceled\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Canceled\nschedule exit", message_id=message_id)
     except Exception as e:
         logging.log(logging.ERROR, f"Error: {e}")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}, Event: {event}\nschedule exit", reply_to_message_id=update.callback_query.message.message_id)
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Error: {e}, Event: {event}\nschedule exit", message_id=message_id)
     finally:
         return ConversationHandler.END
 
