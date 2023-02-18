@@ -57,7 +57,7 @@ def get_info():
         "name": "time_arrangement", 
         "version": "1.0.0", 
         "author": "thisiszy",
-        "description": "*time\_arrange*: arrange time by text and voice, use /schedule to start, use /stopschedule to stop",
+        "description": "*time\_arrangement*: arrange time by text and voice, use /schedule to start, use /stopschedule to stop",
         "commands": [""],
         "message_type": ["text", "audio"]
     }
@@ -221,8 +221,9 @@ async def modify_calender_callback(update: Update, context: ContextTypes.DEFAULT
     orig_text, event, message_id = context.user_data["message"]
     try:
         if update.callback_query.data == "Y":
-            modify_calender(orig_text, json.loads(event), update.effective_chat.id)
-            await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", message_id=message_id)
+            event_id = modify_calender(orig_text, json.loads(event), update.effective_chat.id)
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"{event_id}", message_id=message_id)
+            # await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", message_id=message_id)
         else:
             await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Canceled\nschedule exit", message_id=message_id)
     except Exception as e:
@@ -300,7 +301,7 @@ def modify_calender(orig_text, event, user_id):
         }
 
         event = service.events().insert(calendarId='primary', body=event).execute()
-        return event.get('htmlLink')
+        return event.get('id')
 
 
     except HttpError as error:

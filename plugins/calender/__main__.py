@@ -29,8 +29,8 @@ def get_info():
         "name": "calender", 
         "version": "1.0.0", 
         "author": "thisiszy",
-        "description": "*view, edit your google calender items*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>",
-        "commands": ["events", "auth"]
+        "description": "*google calender operation*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>",
+        "commands": ["events", "auth", "delete"]
     }
 
 def get_handlers(command_list):
@@ -112,9 +112,24 @@ async def events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
 
 async def auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    token = update.message.text.strip("/auth ")
+    token = update.message.text.strip("/auth").strip(" ")
     creds = update_token_crediential(update.effective_chat.id, token)
     if creds is None:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Token invalid")
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Token saved")
+
+async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    event_id = update.message.text.strip("/delete").strip(" ")
+    creds = update_token_crediential(update.effective_chat.id, None)
+    if creds is None:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Token invalid")
+    else:
+        service = build('calendar', 'v3', credentials=creds)
+        try:
+            calendar_list = service.calendarList().list(pageToken=None).execute()
+            calendar_id = calendar_list['items'][0]['id']
+            service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Event deleted")
+        except Exception as error:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f'An error occurred: {error}')
