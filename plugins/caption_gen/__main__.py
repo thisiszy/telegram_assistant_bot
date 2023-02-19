@@ -216,7 +216,7 @@ class Videos:
 
         self.id2title = {}
         for episode in self.episodes:
-            self.id2title[episode["id"]] = f"{episode['title']} {episode['createdAt'].split('T')[0]}"
+            self.id2title[episode["id"]] = f"{episode['title']} {episode['createdAt'].replace(':','')}"
 
         self.username = None
         self.password = None
