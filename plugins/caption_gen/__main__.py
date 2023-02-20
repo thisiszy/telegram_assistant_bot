@@ -110,7 +110,7 @@ async def caption(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Retrieving metadata...", reply_to_message_id=update.message.message_id)
-        if not videos.login(username, password):
+        if not videos.is_open() and not videos.login(username, password):
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Login Failed, please update your username and password by /videoauth <lecture_id> <username> <password>", reply_to_message_id=update.message.message_id)
             return ConversationHandler.END
         res = videos.json_data(episode_id)
