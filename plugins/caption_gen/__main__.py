@@ -13,7 +13,7 @@ base_path = config['CAPTION_GEN']['BASE_PATH']
 
 # Set up the SQLite database
 import sqlite3
-conn = sqlite3.connect('calendar.db')
+conn = sqlite3.connect('storage.db')
 c = conn.cursor()
 c.execute('''
     CREATE TABLE IF NOT EXISTS courses

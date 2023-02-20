@@ -39,7 +39,7 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 # Set up the SQLite database
 import sqlite3
-conn = sqlite3.connect('calendar.db')
+conn = sqlite3.connect('storage.db')
 c = conn.cursor()
 c.execute('''
     CREATE TABLE IF NOT EXISTS tokens
@@ -70,7 +70,7 @@ def get_handlers(command_list):
         entry_points=[CommandHandler("schedule", start)],
         states={
             WAITING: [MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.VOICE, arrange_time_chatgpt)],
-            ADDING: [CallbackQueryHandler(modify_calender_callback)],
+            ADDING: [CallbackQueryHandler(modify_calendar_callback)],
         },
         fallbacks=[CommandHandler("stopschedule", cancel)],
     )]
@@ -217,11 +217,11 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
 
         return WAITING
 
-async def modify_calender_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def modify_calendar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     orig_text, event, message_id = context.user_data["message"]
     try:
         if update.callback_query.data == "Y":
-            event_id = modify_calender(orig_text, json.loads(event), update.effective_chat.id)
+            event_id = modify_calendar(orig_text, json.loads(event), update.effective_chat.id)
             await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"{event_id}", message_id=message_id)
             # await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", message_id=message_id)
         else:
@@ -260,7 +260,7 @@ def update_token_crediential(user_id, secret):
         conn.commit()
     return creds
 
-def modify_calender(orig_text, event, user_id):
+def modify_calendar(orig_text, event, user_id):
     creds = update_token_crediential(user_id, None)
 
     try:

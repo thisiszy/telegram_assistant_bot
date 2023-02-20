@@ -17,7 +17,7 @@ from googleapiclient.errors import HttpError
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 # Set up the SQLite database
-conn = sqlite3.connect('calendar.db')
+conn = sqlite3.connect('storage.db')
 c = conn.cursor()
 c.execute('''
     CREATE TABLE IF NOT EXISTS tokens
@@ -26,10 +26,10 @@ c.execute('''
 
 def get_info():
     return {
-        "name": "calender", 
+        "name": "calendar", 
         "version": "1.0.0", 
         "author": "thisiszy",
-        "description": "*google calender operation*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>",
+        "description": "*google calendar operation*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>",
         "commands": ["events", "auth", "delete"]
     }
 

@@ -2,8 +2,29 @@
 A plugin based telegram bot. Use [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) as the bot backend.
 
 # Quick start
+## Install requirements
 ```bash
 pip install -r requirements.txt
+```
+
+## Edit config file
+```bash
+touch config.ini
+```
+The config file should contain the following part.
+```txt
+[TELEGRAM]
+ACCESS_TOKEN = <Telegram bot access token(required)>
+
+[OPENAI]
+ACCESS_TOKEN_CHATGPT = <ChatGPT token, refer to https://github.com/acheong08/ChatGPT#access-token (required if use function related to ChatGPT)>
+
+[CAPTION_GEN]
+BASE_PATH = <Path to where you want to store the video files and caption files(required if use caption_gen)>
+```
+
+## Start the bot
+```bash
 python start.py
 ```
 
