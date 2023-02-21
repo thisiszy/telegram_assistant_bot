@@ -29,7 +29,7 @@ def get_info():
         "name": "calendar", 
         "version": "1.0.0", 
         "author": "thisiszy",
-        "description": "*google calendar operation*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>",
+        "description": "*google calendar operation*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>, delete your Google Calendar authorization by /delete <event_id>",
         "commands": ["events", "auth", "delete"]
     }
 
