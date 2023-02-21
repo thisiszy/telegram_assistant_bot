@@ -78,17 +78,17 @@ async def chat_with_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = update.message.text
     except AttributeError as e:
         return CHATTING
-    try:
-        if prompt is not None:
-            user_id = update.effective_user.id
-            c.execute('SELECT conversation_id FROM chats WHERE user_id = ?', (user_id,))
-            result = c.fetchone()
-            conv_id = None
-            if result is not None:
-                conv_id = result[0]
-            logging.debug(f"Prompt: {prompt}")
-            place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
-
+    if prompt is not None:
+        user_id = update.effective_user.id
+        c.execute('SELECT conversation_id FROM chats WHERE user_id = ?', (user_id,))
+        result = c.fetchone()
+        conv_id = None
+        if result is not None:
+            conv_id = result[0]
+        logging.debug(f"Prompt: {prompt}")
+        place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Thinking...", reply_to_message_id=update.message.message_id)
+        try:
+            response = ""
             for data in chatbot.ask(prompt, conversation_id=conv_id):
                 response = data["message"]
             logging.debug(f"Response: {response}")
@@ -104,8 +104,10 @@ async def chat_with_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=response,
             )
             return CHATTING
-    except Exception as e:
-        logging.log(logging.ERROR, f"Error: {e}")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}\nChat end!", reply_to_message_id=update.message.message_id)
+        except Exception as e:
+            logging.log(logging.ERROR, f"Error: {e}")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}\nChat end!", reply_to_message_id=update.message.message_id)
 
         return ConversationHandler.END
+    else:
+        return CHATTING
