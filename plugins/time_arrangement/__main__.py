@@ -127,7 +127,7 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
             response = response.choices[0].text.strip()
             logging.info(f"Response: {response}")
             response = response.replace("\n", "")
-            pattern = re.compile(r'{ *"name":.*, *"place":.*, *"stime":.*, *"etime":.*}', flags=0)
+            pattern = re.compile(r'{ *"name":.*, *"place":.*, *"stime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *, *"etime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *}', flags=0)
             matched = pattern.findall(response)
             if len(matched) > 0:
                 keyboard = [
@@ -137,11 +137,11 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                context.user_data["message"] = (update.message.text, matched[0], place_holder.message_id)
+                context.user_data["message"] = (update.message.text, matched[-1], place_holder.message_id)
                 await context.bot.edit_message_text(
                     chat_id=place_holder.chat_id,
                     message_id=place_holder.message_id,
-                    text=matched[0],
+                    text=matched[-1],
                     reply_markup=reply_markup
                 )
                 return ADDING
@@ -184,7 +184,7 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
                 response = data["message"]
             logging.info(f"Response: {response}")
             response = response.replace("\n", "")
-            pattern = re.compile(r'{ *"name":.*, *"place":.*, *"stime":.*, *"etime":.*}', flags=0)
+            pattern = re.compile(r'{ *"name":.*, *"place":.*, *"stime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *, *"etime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *}', flags=0)
             matched = pattern.findall(response)
             if len(matched) > 0:
                 keyboard = [
@@ -193,12 +193,12 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
                         InlineKeyboardButton("Cancel", callback_data="N"),
                     ]
                 ]
-                context.user_data["message"] = (update.message.text, matched[0], place_holder.message_id)
+                context.user_data["message"] = (update.message.text, matched[-1], place_holder.message_id)
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await context.bot.edit_message_text(
                     chat_id=place_holder.chat_id,
                     message_id=place_holder.message_id,
-                    text=matched[0],
+                    text=matched[-1],
                 )
                 await context.bot.edit_message_reply_markup(
                     chat_id=place_holder.chat_id,
@@ -213,7 +213,7 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
                 return WAITING
     except Exception as e:
         logging.log(logging.ERROR, f"Error: {e}")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}, Response: {response}", reply_to_message_id=update.message.message_id)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}\nResponse: {response}", reply_to_message_id=update.message.message_id)
 
         return WAITING
 
