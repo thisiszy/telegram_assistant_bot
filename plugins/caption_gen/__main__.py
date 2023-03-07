@@ -44,14 +44,14 @@ def get_handlers(command_list):
         loaded_commands.append(command)
         command_list.append(command)
     logging.log(logging.INFO, f"Loaded plugin {info['name']}, commands: {loaded_commands}")
-    handlers.append(CallbackQueryHandler(transcribe_callback, pattern='^transcribe$'))
-    handlers = [ConversationHandler(
+    # handlers.append(CallbackQueryHandler(transcribe_callback, pattern='^transcribe$'))
+    handlers.append(ConversationHandler(
         entry_points=[CommandHandler("caption", caption)],
         states={
             RUNNING: [CallbackQueryHandler(transcribe_callback)],
         },
         fallbacks=[CommandHandler("stoptranscribe", cancel)],
-    )]
+    ))
     return handlers, info
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -151,7 +151,7 @@ async def transcribe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     download_file(selected_link, filepath)
     
     await context.bot.edit_message_text(chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Transcribing {filename}...")
-    model = whisper.load_model("base", download_root="env/share/whisper")
+    model = whisper.load_model("small", download_root="env/share/whisper")
     result = model.transcribe(filepath)
     from whisper.utils import get_writer
     writer = get_writer("srt", os.path.dirname(filepath))
@@ -303,11 +303,11 @@ class Videos:
             data = {"_charset_": "utf-8", "j_username": self.username,
                 "j_password": self.password, "j_validate": "true"}
 
-            auth_headers |= {
+            auth_headers = {**auth_headers, **{
                 "CSRF-Token": "undefined",
                 "Content-Length": "57",
                 "DNT": "1",
-            }
+            }}
 
             auth_req = requests.post(login_url, headers=auth_headers, data=data)
             success = not "invalid_login" in auth_req.text
