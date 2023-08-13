@@ -18,7 +18,6 @@ openai.api_key = token
 import whisper
 import shutil
 import os
-model = whisper.load_model("small", download_root="env/share/whisper")
 AUDIO_FILE_PATH = "env/share/whisper/audio"
 
 if os.path.exists(AUDIO_FILE_PATH):
@@ -26,7 +25,7 @@ if os.path.exists(AUDIO_FILE_PATH):
 os.makedirs(AUDIO_FILE_PATH)
 
 # use reverse chatgpt
-from revChatGPT.V1 import Chatbot
+from revChatGPT.V3 import Chatbot
 
 # use google calendar
 from google.auth.transport.requests import Request
@@ -34,6 +33,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from google.auth import exceptions
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
@@ -46,11 +46,9 @@ c.execute('''
     (user_id INTEGER PRIMARY KEY, token TEXT, credentials TEXT)
 ''')
 
-chatbot = Chatbot(config={
-  "access_token": config['OPENAI']['ACCESS_TOKEN_CHATGPT']
-})
+chatbot = Chatbot(api_key=config['OPENAI']['API_KEY'], engine='gpt-3.5-turbo')
 
-BASE_PROMPT = 'Extract the activity name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, start time and end time is mandatory. 3. start time and end time should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}. 4. If there is no end time extracted, you can assume the end time is one hour later than the start time. 5. Your response do not contain "Explanation", "Note" or something else.'
+BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}. 4. If there is no end time, you should assume the end time is one hour later than the start time. 5. If there are multiple different results, you should list them in different lines 6. Your response should not contain anything unrelated to the format above.'
 
 def get_info():
     return {
@@ -62,7 +60,7 @@ def get_info():
         "message_type": ["text", "audio"]
     }
 
-WAITING, ADDING = range(2)
+WAITING, ADDING, SELECTING = range(3)
 
 def get_handlers(command_list):
     info = get_info()
@@ -70,6 +68,7 @@ def get_handlers(command_list):
         entry_points=[CommandHandler("schedule", start)],
         states={
             WAITING: [MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.VOICE, arrange_time_chatgpt)],
+            SELECTING: [CallbackQueryHandler(selecting_calendar_callback)],
             ADDING: [CallbackQueryHandler(modify_calendar_callback)],
         },
         fallbacks=[CommandHandler("stopschedule", cancel)],
@@ -102,6 +101,7 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
             audio_file_path = os.path.join(AUDIO_FILE_PATH, file.file_id)
             await file.download_to_drive(audio_file_path)
             logging.log(logging.INFO, f"Received audio file: {audio_file_path}")
+            model = whisper.load_model("small", download_root="env/share/whisper")
             result = model.transcribe(audio_file_path)
             logging.log(logging.INFO, f"Recognized text: {result['text']}")
             prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -117,7 +117,6 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
             max_tokens = 4000
 
             # Generate a response
-            breakpoint()
             response = openai.Completion.create(
                 engine=gpt_model,
                 prompt=prompt,
@@ -147,13 +146,13 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return ADDING
             else:
                 await context.bot.edit_message_text(
-                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Not matched: {response}"
+                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Not matched: {response}\nExit conversation"
                 )
-                return WAITING
+                return ConversationHandler.END
     except Exception as e:
         logging.log(logging.ERROR, f"Error: {e}")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Error f{e}", reply_to_message_id=update.message.message_id)
-        return WAITING
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Error f{e}\nExit conversation", reply_to_message_id=update.message.message_id)
+        return ConversationHandler.END
 
 async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prompt = None
@@ -167,6 +166,7 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
             file = await update.message.voice.get_file()
             audio_file_path = os.path.join(AUDIO_FILE_PATH, file.file_id)
             await file.download_to_drive(audio_file_path)
+            model = whisper.load_model("small", download_root="env/share/whisper")
             result = model.transcribe(audio_file_path)
             logging.debug(f"Received audio file: {audio_file_path}")
             logging.debug(f"Recognized text: {result['text']}")
@@ -180,48 +180,91 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
             else:
                 place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Parsing...", reply_to_message_id=update.message.message_id)
 
-            for data in chatbot.ask(prompt):
-                response = data["message"]
+            logging.info(f"Prompt: {prompt}")
+            response = chatbot.ask(prompt)
             logging.info(f"Response: {response}")
-            response = response.replace("\n", "")
-            pattern = re.compile(r'{ *"name":.*, *"place":.*, *"stime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *, *"etime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *}', flags=0)
+            # response = response.replace("\n", "")
+            pattern = re.compile(r'{[\n\t ]*"name":.*,[\n\t ]*"place":.*,[\n\t ]*"stime":[\n\t ]*"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}"[\n\t ]*,[\n\t ]*"etime":[\n\t ]*"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}"[\n\t ]*}', flags=0)
             matched = pattern.findall(response)
             if len(matched) > 0:
-                keyboard = [
-                    [
-                        InlineKeyboardButton("Apply", callback_data="Y"),
-                        InlineKeyboardButton("Cancel", callback_data="N"),
-                    ]
-                ]
-                context.user_data["message"] = (update.message.text, matched[-1], place_holder.message_id)
+                events_json = []
+                events_text = []
+                keyboard = [[]]
+                for idx, item in enumerate(matched):
+                    events_json.append(json.loads(item))
+                    events_text.append(f"{idx}. {json.dumps(events_json[-1])}")
+                    keyboard[0].append(InlineKeyboardButton(f"{idx}", callback_data=f"{idx}"))
+                keyboard.append([InlineKeyboardButton("Cancel", callback_data="N")])
+                # keyboard = [
+                #     [
+                #         InlineKeyboardButton("Apply", callback_data="Y"),
+                #         InlineKeyboardButton("Cancel", callback_data="N"),
+                #     ]
+                # ]
+                context.user_data["message"] = (update.message.text, events_json, place_holder)
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await context.bot.edit_message_text(
                     chat_id=place_holder.chat_id,
                     message_id=place_holder.message_id,
-                    text=matched[-1],
+                    text="\n".join(events_text),
                 )
                 await context.bot.edit_message_reply_markup(
                     chat_id=place_holder.chat_id,
                     message_id=place_holder.message_id,
                     reply_markup=reply_markup
                 )
-                return ADDING
+                
+                return SELECTING
             else:
                 await context.bot.edit_message_text(
-                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Not matched: {response}"
+                    chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Not matched: {response}\nExit conversation"
                 )
-                return WAITING
+                return ConversationHandler.END
     except Exception as e:
         logging.log(logging.ERROR, f"Error: {e}")
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}\nResponse: {response}", reply_to_message_id=update.message.message_id)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}\nResponse: {response}\nExit conversation", reply_to_message_id=update.message.message_id)
 
-        return WAITING
+        return ConversationHandler.END
 
-async def modify_calendar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    orig_text, event, message_id = context.user_data["message"]
+# input: selected event json
+# output: ask user to select calendar
+async def selecting_calendar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    orig_text, events, place_holder = context.user_data["message"]
     try:
-        if update.callback_query.data == "Y":
-            event_id = modify_calendar(orig_text, json.loads(event), update.effective_chat.id)
+        if update.callback_query.data != "N":
+            calendar_serv = get_calendar_service(update.effective_chat.id)
+            calender_list = list_calendar(calendar_serv)
+
+            keyboard = [[]]
+            for idx, item in enumerate(calender_list):
+                keyboard[0].append(InlineKeyboardButton(f"{item['summary']}", callback_data=f"{idx}"))
+            keyboard.append([InlineKeyboardButton("Cancel", callback_data="N")])
+
+            context.user_data["message"] = (orig_text, events[int(update.callback_query.data)], calender_list, place_holder.message_id)
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await context.bot.edit_message_reply_markup(
+                chat_id=place_holder.chat_id,
+                message_id=place_holder.message_id,
+                reply_markup=reply_markup
+            )
+
+            return ADDING
+        else:
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Canceled\nschedule exit", message_id=message_id)
+            return ConversationHandler.END
+    except Exception as e:
+        logging.log(logging.ERROR, f"Error: {e}")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {e}\nExit conversation", reply_to_message_id=update.message.message_id)
+        return ConversationHandler.END
+
+# input: selected calendar
+# output: add event to calendar
+async def modify_calendar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    orig_text, event, calender_list, message_id = context.user_data["message"]
+    try:
+        if update.callback_query.data != "N":
+            calendar_serv = get_calendar_service(update.effective_chat.id)
+            event_id = modify_calendar(orig_text, event, calender_list[int(update.callback_query.data)]['id'], calendar_serv)
             await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"{event_id}", message_id=message_id)
             # await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"Event added: {event}\nschedule exit", message_id=message_id)
         else:
@@ -232,15 +275,18 @@ async def modify_calendar_callback(update: Update, context: ContextTypes.DEFAULT
     finally:
         return ConversationHandler.END
 
-def update_token_crediential(user_id, secret):
+def update_token_crediential(user_id, secret, force_update=False):
     creds = None
+    result = None
     # The database stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    c.execute('SELECT token, credentials FROM tokens WHERE user_id = ?', (user_id,))
-    result = c.fetchone()
-    if result:
-        creds = Credentials.from_authorized_user_info(json.loads(result[1]), SCOPES)
+    if not force_update:
+        c.execute('SELECT token, credentials FROM tokens WHERE user_id = ?', (user_id,))
+        result = c.fetchone()
+        secret = result[0]
+        if result:
+            creds = Credentials.from_authorized_user_info(json.loads(result[1]), SCOPES)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -251,18 +297,40 @@ def update_token_crediential(user_id, secret):
             else:
                 if result:
                     secret = result[0]
-                    flow = InstalledAppFlow.from_client_config(json.loads(secret), SCOPES)
+                    if secret is not None:
+                        flow = InstalledAppFlow.from_client_config(json.loads(secret), SCOPES)
+                    else:
+                        logging.error("result[0] is None")
+                        return None
                 else:
+                    logging.error("No secret found")
                     return None
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
+        if secret is None:
+            logging.error("No secret found, can't save")
+            logging.error(creds.to_json())
+            return None
         c.execute('INSERT OR REPLACE INTO tokens (user_id, token, credentials) VALUES (?, ?, ?)', (user_id, secret, creds.to_json()))
         conn.commit()
     return creds
 
-def modify_calendar(orig_text, event, user_id):
-    creds = update_token_crediential(user_id, None)
+def get_calendar_service(user_id):
+    try:
+        creds = update_token_crediential(user_id, None)
+    except exceptions.RefreshError:
+        c.execute('SELECT token FROM tokens WHERE user_id = ?', (user_id,))
+        result = c.fetchone()
+        if result:
+            creds = update_token_crediential(user_id, result[0], force_update=True)
+        else:
+            raise exceptions.RefreshError
 
+    service = build('calendar', 'v3', credentials=creds)
+
+    return service
+
+def modify_calendar(orig_text, event, calender_id, service):
     try:
         # get the local time zone
         timezone = datetime.now().astimezone().tzinfo
@@ -278,7 +346,6 @@ def modify_calendar(orig_text, event, user_id):
             dt = datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
             return dt.strftime("%Y-%m-%dT%H:%M:%S") + offset_str
 
-        service = build('calendar', 'v3', credentials=creds)
         event = {
             'summary': event['name'],
             'location': event['place'],
@@ -300,9 +367,25 @@ def modify_calendar(orig_text, event, user_id):
             },
         }
 
-        event = service.events().insert(calendarId='primary', body=event).execute()
+        event = service.events().insert(calendarId=calender_id, body=event).execute()
         return event.get('id')
 
 
     except HttpError as error:
         return f'An error occurred: {error}'
+
+def list_calendar(service):
+    page_token = None
+    calendar_list = []
+    while True:
+        cur_calendar_list = service.calendarList().list(pageToken=page_token).execute()
+        for calendar_list_entry in cur_calendar_list['items']:
+            print(calendar_list_entry['summary'])
+            calendar_list.append({
+                'summary': calendar_list_entry['summary'],
+                'id': calendar_list_entry['id']
+            })
+        page_token = cur_calendar_list.get('nextPageToken')
+        if not page_token:
+            break
+    return calendar_list
