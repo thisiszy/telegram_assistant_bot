@@ -17,7 +17,7 @@ The config file should contain the following part.
 ACCESS_TOKEN = <Telegram bot access token(required)>
 
 [OPENAI]
-ACCESS_TOKEN_CHATGPT = <ChatGPT token, refer to https://github.com/acheong08/ChatGPT#access-token (required if use function related to ChatGPT)>
+API_KEY = <OpenAI key, refer to https://platform.openai.com/account/api-keys>
 
 [CAPTION_GEN]
 BASE_PATH = <Path to where you want to store the video files and caption files(required if use caption_gen)>

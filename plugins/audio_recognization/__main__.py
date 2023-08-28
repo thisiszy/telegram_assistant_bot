@@ -4,7 +4,6 @@ import logging
 import whisper
 import os
 import shutil
-model = whisper.load_model("small", download_root="env/share/whisper")
 AUDIO_FILE_PATH = "env/share/whisper/audio"
 
 if os.path.exists(AUDIO_FILE_PATH):
@@ -56,6 +55,7 @@ async def convert_audio2text(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await file.download_to_drive(audio_file_path)
             logging.log(logging.INFO, f"Received audio file: {audio_file_path}")
             place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...", reply_to_message_id=update.message.message_id)
+            model = whisper.load_model("small", download_root="env/share/whisper")
             result = model.transcribe(audio_file_path)
             logging.log(logging.INFO, f"Recognized text: {result['text']}")
             await context.bot.edit_message_text(

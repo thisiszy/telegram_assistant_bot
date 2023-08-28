@@ -4,14 +4,12 @@ import logging
 import configparser
 
 # use reverse chatgpt
-from revChatGPT.V1 import Chatbot
+from revChatGPT.V3 import Chatbot
 
 
 config = configparser.ConfigParser()
 config.read('config.ini')
-chatbot = Chatbot(config={
-  "access_token": config['OPENAI']['ACCESS_TOKEN_CHATGPT']
-})
+chatbot = Chatbot(api_key=config['OPENAI']['API_KEY'], engine='gpt-3.5-turbo-0301')
 
 # Set up the SQLite database
 import sqlite3

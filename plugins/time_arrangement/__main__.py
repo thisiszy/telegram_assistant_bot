@@ -380,7 +380,6 @@ def list_calendar(service):
     while True:
         cur_calendar_list = service.calendarList().list(pageToken=page_token).execute()
         for calendar_list_entry in cur_calendar_list['items']:
-            print(calendar_list_entry['summary'])
             calendar_list.append({
                 'summary': calendar_list_entry['summary'],
                 'id': calendar_list_entry['id']
