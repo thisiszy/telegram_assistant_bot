@@ -139,7 +139,7 @@ class eth_mensa:
                         formatted_text += "*{title}*\n".format(title=self.id_to_eth_mensa[item['facility-id']]['facility-name'])
                         for opening_hour in opening_hours['meal-time-array']:
                             # print(bcolors.UNDERLINE, bcolors.BOLD, f"{opening_hour['name']}\t{opening_hour['time-from']}-{opening_hour['time-to']}", bcolors.ENDC)
-                            formatted_text += "{name}\t{time_from}-{time_to}\n".format(name=opening_hour['name'], time_from=opening_hour['time-from'], time_to=opening_hour['time-to'])
+                            formatted_text += "__{name}__\t{time_from}-{time_to}\n".format(name=opening_hour['name'], time_from=opening_hour['time-from'], time_to=opening_hour['time-to'])
                             if 'line-array' in opening_hour:
                                 for meal in opening_hour['line-array']:
                                     if 'meal' in meal:
@@ -191,7 +191,7 @@ async def alive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.log(logging.INFO, umsg)
 
         msg = emsg + umsg
-        msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace("(", r"\(").replace(")", r"\)").replace("+", r"\+")
+        msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace("(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
         if len(msg) == 0:
             msg = "No menu found"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
