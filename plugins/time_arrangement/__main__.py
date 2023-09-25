@@ -4,7 +4,6 @@ import logging
 import configparser
 from datetime import datetime
 import json
-from datetime import datetime
 from tzlocal import get_localzone
 import re
 # import openai GPT-3 token
