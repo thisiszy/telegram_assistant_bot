@@ -41,12 +41,14 @@ class uzh_mensa:
                 self.uzh_mensa_list += campus['mensas']
 
     def print_uzh_menus(self, target_date, condition=None):
-        formatted_text = ""
+        mensa_list = []
         for mensa in self.uzh_mensa_list:
             if condition is not None:
                 if condition not in mensa['title'].lower() and condition not in mensa['infoUrlSlug'].lower():
                     continue
             # print(bcolors.OKGREEN, bcolors.BOLD, mensa['title'], bcolors.ENDC)
+            cur_mensa = {'status': 'ok'}
+            formatted_text = ""
             formatted_text += "*{title}*\n".format(title=mensa['title'])
             
             weekday = target_date.weekday()+1
@@ -56,8 +58,8 @@ class uzh_mensa:
             elif self.args.lang == 'de':
                 uzh_url = 'http://zfv.ch/de/menus/rssMenuPlan?menuId={}&dayOfWeek={}'.format(mensa['idSlugDe'], str(weekday))
             else:
-                formatted_text = "Language not supported"
-                return formatted_text
+                cur_mensa['status'] = 'Language not supported'
+                return cur_mensa
 
             context = ssl.create_default_context(cafile=certifi.where())
             with urllib.request.urlopen(uzh_url, context=context) as url:
@@ -86,8 +88,10 @@ class uzh_mensa:
                     # print(bcolors.BOLD, bcolors.FAIL, mensa['title'], "CLOSED", bcolors.ENDC)
                     formatted_text += "{title} CLOSED\n".format(title=mensa['title'])
             # print("--------------------------------------------------------------------")
-            formatted_text += "\n"
-        return formatted_text
+            cur_mensa['text'] = formatted_text
+            mensa_list.append(cur_mensa)
+
+        return mensa_list
 
 
 class eth_mensa:
@@ -111,7 +115,7 @@ class eth_mensa:
         return data
 
     def print_eth_menus(self, target_date, condition):
-        formatted_text = ""
+        mensa_list = []
         def request_weekly_menus(rs_first, rs_size, valid_after):
             eth_url = self.data_link.format(lang=self.args.lang, rs_first=rs_first, rs_size=rs_size, valid_after=valid_after)
             context = ssl.create_default_context(cafile=certifi.where())
@@ -132,34 +136,31 @@ class eth_mensa:
                     continue
             target_day_menus = item['day-of-week-array'][target_date.weekday()]
             is_open = True
+            cur_mensa = {'status': 'ok'}
+            formatted_text = ""
             if 'opening-hour-array' in target_day_menus:
                 for opening_hours in target_day_menus['opening-hour-array']:
                     if opening_hours['meal-time-array'] != []:
-                        # print(bcolors.OKGREEN, bcolors.BOLD, self.id_to_eth_mensa[item['facility-id']]['facility-name'], bcolors.ENDC)
                         formatted_text += "*{title}*\n".format(title=self.id_to_eth_mensa[item['facility-id']]['facility-name'])
                         for opening_hour in opening_hours['meal-time-array']:
-                            # print(bcolors.UNDERLINE, bcolors.BOLD, f"{opening_hour['name']}\t{opening_hour['time-from']}-{opening_hour['time-to']}", bcolors.ENDC)
                             formatted_text += "__{name}__\t{time_from}-{time_to}\n".format(name=opening_hour['name'], time_from=opening_hour['time-from'], time_to=opening_hour['time-to'])
                             if 'line-array' in opening_hour:
                                 for meal in opening_hour['line-array']:
                                     if 'meal' in meal:
-                                        # print(bcolors.OKBLUE, bcolors.BOLD, f"{meal['name']} | CHF {'/'.join([str(price['price']) for price in meal['meal']['meal-price-array']])}" , bcolors.ENDC)
+                                        cur_menu = {}
                                         formatted_text += "`{name} | CHF {price}`\n".format(name=meal['meal']['name'], price='/'.join([str(price['price']) for price in meal['meal']['meal-price-array']]))
-                                        # print(f"  {meal['meal']['name']}  {meal['meal']['description']}")
                                         formatted_text += "  {description}\n".format(description=meal['meal']['description'].replace("\n", " "))
-                                        # print()
                     else:
                         is_open = False
             else:
                 is_open = False
             
             if not is_open:
-                # print(bcolors.BOLD, bcolors.FAIL, self.id_to_eth_mensa[item['facility-id']]['facility-name'], "CLOSED", bcolors.ENDC)
                 formatted_text += "{title} CLOSED\n".format(title=self.id_to_eth_mensa[item['facility-id']]['facility-name'])
-                # print("--------------------------------------------------------------------")
-            formatted_text += "\n"
+            cur_mensa['text'] = formatted_text
+            mensa_list.append(cur_mensa)
         
-        return formatted_text
+        return mensa_list
 
 
 async def alive(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -185,16 +186,32 @@ async def alive(update: Update, context: ContextTypes.DEFAULT_TYPE):
         emensa = eth_mensa(args)
         umensa = uzh_mensa(args)
 
-        emsg = emensa.print_eth_menus(target_date, args.location)
-        logging.log(logging.INFO, emsg)
-        umsg = umensa.print_uzh_menus(target_date, args.location)
-        logging.log(logging.INFO, umsg)
+        emensa_list = emensa.print_eth_menus(target_date, args.location)
+        logging.log(logging.INFO, emensa_list)
+        umensa_list = umensa.print_uzh_menus(target_date, args.location)
+        logging.log(logging.INFO, umensa_list)
 
-        msg = emsg + umsg
-        msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace("(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
-        if len(msg) == 0:
+        # msg = emsg + umsg
+        mensa_list = emensa_list + umensa_list
+        msg = ""
+        for mensa in mensa_list:
+            if mensa['status'] == 'ok':
+                next_msg = mensa['text']
+                if len(msg + next_msg) > 4000:
+                    msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace("(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
+                    msg = next_msg
+
+                msg += next_msg + "\n"
+            else:
+                msg = mensa['status']
+                break
+        if len(mensa_list) == 0:
             msg = "No menu found"
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
+        elif len(msg) > 0:
+            msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace("(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
     except SystemExit:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Argument Error: Use /mensa [location] command to check todays menu")
     except Exception as e:
