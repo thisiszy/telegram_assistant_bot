@@ -49,6 +49,16 @@ chatbot = Chatbot(api_key=config['OPENAI']['API_KEY'], engine='gpt-3.5-turbo')
 
 BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time. 5. If there are multiple different results, you should list them in different lines 6. Your response should not contain anything unrelated to the format above.'
 
+weekday_dict = {
+    0: "Monday",
+    1: "Tuesday",
+    2: "Wednesday",
+    3: "Thurday",
+    4: "Friday",
+    5: "Saturday",
+    6: "Sunday"
+}
+
 def get_info():
     return {
         "name": "time_arrangement", 
@@ -93,7 +103,7 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     place_holder = None
     try:
         if update.message.text is not None:
-            prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datetime.weekday(datetime.now()))
+            prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), weekday_dict[datetime.weekday(datetime.now())])
         if update.message.voice is not None:
             place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...", reply_to_message_id=update.message.message_id)
             file = await update.message.voice.get_file()
@@ -103,7 +113,7 @@ async def arrange_time_gpt3(update: Update, context: ContextTypes.DEFAULT_TYPE):
             model = whisper.load_model("small", download_root="env/share/whisper")
             result = model.transcribe(audio_file_path)
             logging.log(logging.INFO, f"Recognized text: {result['text']}")
-            prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datetime.weekday(datetime.now()))
+            prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), weekday_dict[datetime.weekday(datetime.now())])
         if prompt is not None:
             if place_holder is not None:
                 await context.bot.edit_message_text(
@@ -159,7 +169,7 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
     response = ""
     try:
         if update.message.text is not None:
-            prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datetime.weekday(datetime.now()))
+            prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), weekday_dict[datetime.weekday(datetime.now())])
         if update.message.voice is not None:
             place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...", reply_to_message_id=update.message.message_id)
             file = await update.message.voice.get_file()
@@ -169,7 +179,7 @@ async def arrange_time_chatgpt(update: Update, context: ContextTypes.DEFAULT_TYP
             result = model.transcribe(audio_file_path)
             logging.debug(f"Received audio file: {audio_file_path}")
             logging.debug(f"Recognized text: {result['text']}")
-            prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), datetime.weekday(datetime.now()))
+            prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime("%Y-%m-%d %H:%M:%S"), weekday_dict[datetime.weekday(datetime.now())])
         if prompt is not None:
             logging.debug(f"Prompt: {prompt}")
             if place_holder is not None:
