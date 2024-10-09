@@ -69,8 +69,8 @@ class Auth(Handler):
         if len(context.args) != 2:
             await update.message.reply_text(r"Usage: /revoke_permission <permission> <user_id>")
             return
-        user_id = context.args[1]
-        permission = context.args[0]
+        user_id = context.args[0]
+        permission = context.args[1]
         if user_id not in PERMISSION_TABLE:
             await update.message.reply_text(f"User {user_id} not found")
         elif permission in PERMISSION_TABLE[user_id]:
