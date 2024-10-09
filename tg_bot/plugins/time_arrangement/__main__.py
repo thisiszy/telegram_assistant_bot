@@ -64,7 +64,7 @@ class TimeArrangementHandler(Handler):
     def __init__(self):
         config = configparser.ConfigParser()
         config.read(CONFIG_PATH)
-        token = config['OPENAI']['ACCESS_TOKEN_GPT3']
+        token = config['OPENAI']['API_KEY']
         self.client = openai.OpenAI(api_key=token)
 
         # If modifying these scopes, delete the file token.json.
