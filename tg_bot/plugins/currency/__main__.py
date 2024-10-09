@@ -10,18 +10,17 @@ from telegram.ext import ContextTypes
 from tg_bot.core.handler import Handler, command_handler
 from tg_bot.utils.consts import DB_PATH
 
-# Set up the SQLite database
-conn = sqlite3.connect(DB_PATH)
-c = conn.cursor()
-c.execute('''
-    CREATE TABLE IF NOT EXISTS currency
-    (user_id INTEGER PRIMARY KEY, base_currency TEXT)
-''')
-
 
 class CurrencyQuery(Handler):
     def __init__(self):
         super().__init__()
+        # Set up the SQLite database
+        self.conn = sqlite3.connect(DB_PATH)
+        self.c = self.conn.cursor()
+        self.c.execute('''
+            CREATE TABLE IF NOT EXISTS currency
+            (user_id INTEGER PRIMARY KEY, base_currency TEXT)
+        ''')
 
     @property
     def info(self):
@@ -55,15 +54,15 @@ class CurrencyQuery(Handler):
             await update.message.reply_text("Please specify the base currency you want to set.")
             return
         base_currency = context.args[0].upper()
-        c.execute('INSERT OR REPLACE INTO currency (user_id, base_currency) VALUES (?, ?)',
+        self.c.execute('INSERT OR REPLACE INTO currency (user_id, base_currency) VALUES (?, ?)',
                   (update.message.from_user.id, base_currency))
-        conn.commit()
+        self.conn.commit()
         await update.message.reply_text(f"Base currency set to {base_currency}")
 
     @command_handler
     async def get_currency(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        c.execute('SELECT base_currency FROM currency WHERE user_id = ?', (update.message.from_user.id,))
-        base_currency = c.fetchone()
+        self.c.execute('SELECT base_currency FROM currency WHERE user_id = ?', (update.message.from_user.id,))
+        base_currency = self.c.fetchone()
         if base_currency is None:
             await update.message.reply_text("Please set the base currency first.")
             return
@@ -94,16 +93,16 @@ class CurrencyQuery(Handler):
             return
 
         src_user_id = message.from_user.id
-        c.execute('SELECT base_currency FROM currency WHERE user_id = ?', (src_user_id,))
-        source = c.fetchone()
+        self.c.execute('SELECT base_currency FROM currency WHERE user_id = ?', (src_user_id,))
+        source = self.c.fetchone()
         if source is None:
             await update.message.reply_text("Please set the base currency first.")
             return
         source = source[0]
 
         target_user_id = update.message.from_user.id
-        c.execute('SELECT base_currency FROM currency WHERE user_id = ?', (target_user_id,))
-        target = c.fetchone()
+        self.c.execute('SELECT base_currency FROM currency WHERE user_id = ?', (target_user_id,))
+        target = self.c.fetchone()
         if target is None:
             await update.message.reply_text("Please set the target currency first.")
             return

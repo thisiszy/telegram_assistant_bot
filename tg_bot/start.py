@@ -1,10 +1,12 @@
 import logging
 import configparser
-from tg_bot.core.handler_helper import add_handlers
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackContext
+from telegram.ext import ApplicationBuilder, CallbackContext
 from telegram.error import NetworkError
+
+from tg_bot.core.handler_helper import add_handlers
+from tg_bot.utils.consts import CONFIG_PATH
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -23,7 +25,7 @@ def error(update: Update, context: CallbackContext) -> None:
 
 def main():
     config = configparser.ConfigParser()
-    config.read('tg_bot/configs/config.ini')
+    config.read(CONFIG_PATH)
     token = config['TELEGRAM']['ACCESS_TOKEN']
     application = ApplicationBuilder().token(token).build()
     add_handlers(application)

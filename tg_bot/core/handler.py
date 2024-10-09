@@ -24,7 +24,8 @@ class Handler:
         }
 
     def get_handlers(self, loaded_commands: list[str]) -> tuple[list[CommandHandler], str]:
-        help_msg = f"*{self.info['name']}*: \n"
+        clean_name = self.info['name'].replace("_", r"\_")
+        help_msg = f"*{clean_name}*: \n"
         handlers = []
         loaded_commands = []
         for command in self.info['commands']:
