@@ -7,7 +7,6 @@ name = "telegram-assistant-bot"
 version = "0.1.1"
 requires-python = ">=3.11,<4.0"
 dependencies = [
-    "beautifulsoup4",
     "ffmpeg-python",
     "google-api-core",
     "google-api-python-client",
@@ -15,7 +14,6 @@ dependencies = [
     "google-auth-httplib2",
     "google-auth-oauthlib",
     "googleapis-common-protos",
-    "numpy",
     "openai",
     "openai-whisper",
     "OpenAIAuth",
