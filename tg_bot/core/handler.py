@@ -39,7 +39,8 @@ class Handler:
                 if callable(attr) and getattr(attr, "command_handler", False) is True:
                     handlers.append(CommandHandler(command_name, attr))
                     loaded_commands.append(command_name)
-                    help_msg += f"  _{command_name}_: {description}\n"
+                    new_command_name = command_name.replace("_", r"\_")
+                    help_msg += f"  _{new_command_name}_: {description}\n"
 
         logger.info(
             f"Loaded plugin {self.info['name']}, commands: {loaded_commands}")
