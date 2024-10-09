@@ -62,6 +62,7 @@ class TimeArrangementHandler(Handler):
         }
 
     def __init__(self):
+        super().__init__()
         config = configparser.ConfigParser()
         config.read(CONFIG_PATH)
         token = config['OPENAI']['API_KEY']

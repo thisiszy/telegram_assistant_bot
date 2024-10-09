@@ -5,3 +5,4 @@ with importlib.resources.path('tg_bot', '__init__.py') as package_path:
     PACKAGE_PATH = package_path.parent
     DB_PATH = package_path.parent / "configs"/"storage.db"
     PERMISSION_TABLE_PATH = package_path.parent / "configs"/"permissions.json"
+    CONFIG_PATH = package_path.parent / "configs"/"config.ini"
