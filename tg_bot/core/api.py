@@ -10,9 +10,9 @@ from tg_bot.core.handler import Handler
 logger = logging.getLogger(__name__)
 
 
-def get_handlers(application: ApplicationBuilder, plugin_dir: Path = DEFAULT_PLUGIN_DIR):
+def get_handlers(application: ApplicationBuilder, plugin_dir: Path = DEFAULT_PLUGIN_DIR) -> str:
     loaded_commands = []
-    help_info = []
+    help_msg = ""
     for base_folder in plugin_dir.iterdir():
         plugin_main = base_folder / "__main__.py"
         if base_folder.is_dir() and plugin_main.exists():
@@ -32,15 +32,14 @@ def get_handlers(application: ApplicationBuilder, plugin_dir: Path = DEFAULT_PLU
                                 plugin: type[Handler] | None = getattr(
                                     module, node.name, None
                                 )()
-                                handlers = plugin.get_handlers(
+                                handlers, msg = plugin.get_handlers(
                                     loaded_commands)
-                                info = plugin.info
-                                help_info.append(info['description'])
+                                help_msg += msg
                                 for handler in handlers:
                                     application.add_handler(handler)
             except SyntaxError:
                 logger.error(f"Error parsing {plugin_main}. Skipping...")
-    return help_info
+    return help_msg
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from googleapiclient.errors import HttpError
 from google.auth import exceptions
 
 from tg_bot.core.handler import Handler, command_handler
+from tg_bot.core.auth import restricted
 from tg_bot.utils.consts import DB_PATH
 
 # If modifying these scopes, delete the file token.json.
@@ -174,16 +175,30 @@ class Calendar(Handler):
             "name": "calendar",
             "version": "1.0.0",
             "author": "thisiszy",
-            "description": "*google calendar operation*: view your next events by /events, authorize the bot to access your Google Calendar by /auth <secret token\>, delete your Google Calendar authorization by /delete <event\_id\>",
-            "commands": ["events", "auth", "delete"]
+            "commands": [
+                {
+                    "command": "events",
+                    "description": r"View your next events, usage: /events",
+                },
+                {
+                    "command": "auth",
+                    "description": r"Authorize the bot to access your Google Calendar, usage: /auth <secret\_token\>",
+                },
+                {
+                    "command": "delete",
+                    "description": r"Delete your Google Calendar authorization, usage: /delete <event\_id\>",
+                }
+            ]
         }
 
-    @command_handler()
+    @command_handler
+    @restricted
     async def events(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = list_events(update.effective_chat.id)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
 
-    @command_handler()
+    @command_handler
+    @restricted
     async def auth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         token = update.message.text.strip("/auth").strip(" ")
         creds = update_token_crediential(
@@ -193,7 +208,8 @@ class Calendar(Handler):
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Token saved")
 
-    @command_handler()
+    @command_handler
+    @restricted
     async def delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         event_id = update.message.text.strip("/delete").strip(" ")
         user_id = update.effective_chat.id

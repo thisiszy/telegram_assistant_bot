@@ -4,12 +4,9 @@ from telegram.ext import CommandHandler
 logger = logging.getLogger(__name__)
 
 
-def command_handler():
-    def decorator(func):
-        setattr(func, "command_handler", True)
-        return func
-
-    return decorator
+def command_handler(func):
+    setattr(func, "command_handler", True)
+    return func
 
 
 class Handler:
@@ -26,22 +23,24 @@ class Handler:
             "commands": []
         }
 
-    def get_handlers(self, loaded_commands: list[str]) -> list[CommandHandler]:
-        info = self.info
+    def get_handlers(self, loaded_commands: list[str]) -> tuple[list[CommandHandler], str]:
+        help_msg = f"*{self.info['name']}*: \n"
         handlers = []
         loaded_commands = []
-        for command in info['commands']:
-            if command in loaded_commands:
+        for command in self.info['commands']:
+            command_name, description = command["command"], command["description"]
+            if command_name in loaded_commands:
                 logger.error(
-                    logging.ERROR, f"Command {command} already exists, ignored!")
+                    logging.ERROR, f"Command {command_name} already exists, ignored!")
                 continue
             # Find the method with the command_handler decorator
-            if command in dir(self):
-                attr = getattr(self, command)
+            if command_name in dir(self):
+                attr = getattr(self, command_name)
                 if callable(attr) and getattr(attr, "command_handler", False) is True:
-                    handlers.append(CommandHandler(command, attr))
-                    loaded_commands.append(command)
+                    handlers.append(CommandHandler(command_name, attr))
+                    loaded_commands.append(command_name)
+                    help_msg += f"  _{command_name}_: {description}\n"
 
         logger.info(
-            f"Loaded plugin {info['name']}, commands: {loaded_commands}")
-        return handlers
+            f"Loaded plugin {self.info['name']}, commands: {loaded_commands}")
+        return handlers, help_msg
