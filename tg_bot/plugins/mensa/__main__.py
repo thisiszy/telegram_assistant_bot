@@ -177,7 +177,7 @@ class MensaHandler(Handler):
     @command_handler
     async def mensa(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(context.args) < 1:
-            await update.message.reply_text(self.info["commands"][0]["description"])
+            await update.message.reply_text("Use /help to get usage")
             return
         args_list = context.args
 

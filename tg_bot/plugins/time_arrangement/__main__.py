@@ -17,7 +17,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.auth import exceptions
 
-from tg_bot.core.handler import command_handler, Handler
+from tg_bot.core.handler import Handler
+from tg_bot.core.auth import restricted
 from tg_bot.utils.consts import CONFIG_PATH, DB_PATH
 
 logger = logging.getLogger(__name__)
@@ -96,12 +97,14 @@ class TimeArrangementHandler(Handler):
         help_msg += f"    _{command_name}_: {info['commands'][0]['description']}\n"
         return handlers, help_msg
 
+    @restricted
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Send me text or audio, I can arrange time for you.\n\n"
         )
         return WAITING
 
+    @restricted
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Cancels and ends the conversation."""
         await update.message.reply_text(
@@ -109,6 +112,7 @@ class TimeArrangementHandler(Handler):
         )
         return ConversationHandler.END
 
+    @restricted
     async def arrange_time_gpt3(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = None
         place_holder = None
@@ -180,6 +184,7 @@ class TimeArrangementHandler(Handler):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Error f{e}\nExit conversation", reply_to_message_id=update.message.message_id)
             return ConversationHandler.END
 
+    @restricted
     async def arrange_time_chatgpt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = None
         place_holder = None
@@ -249,6 +254,7 @@ class TimeArrangementHandler(Handler):
 
     # input: selected event json
     # output: ask user to select calendar
+    @restricted
     async def selecting_calendar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         orig_text, events_obj, place_holder = context.user_data["message"]
         try:
@@ -283,6 +289,7 @@ class TimeArrangementHandler(Handler):
 
     # input: selected calendar
     # output: add event to calendar
+    @restricted
     async def modify_calendar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         orig_text, event_obj, calender_list, message_id = context.user_data["message"]
         try:
