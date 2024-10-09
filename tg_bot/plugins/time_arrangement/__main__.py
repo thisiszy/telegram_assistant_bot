@@ -85,34 +85,33 @@ class TimeArrangementHandler(Handler):
         clean_name = self.info['name'].replace("_", r"\_")
         help_msg = f"*{clean_name}*: \n"
         handlers = [ConversationHandler(
-            entry_points=[CommandHandler("schedule", self.start)],
+            entry_points=[CommandHandler("schedule", self.schedule)],
             states={
                 WAITING: [MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.VOICE, self.arrange_time_chatgpt)],
                 SELECTING: [CallbackQueryHandler(self.selecting_calendar_callback)],
                 ADDING: [CallbackQueryHandler(self.modify_calendar_callback)],
             },
-            fallbacks=[CommandHandler("stopschedule", self.cancel)],
+            fallbacks=[CommandHandler("stopschedule", self.stopschedule)],
         )]
         command_name = info['commands'][0]['command'].replace("_", r"\_")
         help_msg += f"    _{command_name}_: {info['commands'][0]['description']}\n"
         return handlers, help_msg
 
     @restricted
-    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Send me text or audio, I can arrange time for you.\n\n"
         )
         return WAITING
 
     @restricted
-    async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    async def stopschedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Cancels and ends the conversation."""
         await update.message.reply_text(
             "Canceled."
         )
         return ConversationHandler.END
 
-    @restricted
     async def arrange_time_gpt3(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = None
         place_holder = None
@@ -184,7 +183,6 @@ class TimeArrangementHandler(Handler):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Error f{e}\nExit conversation", reply_to_message_id=update.message.message_id)
             return ConversationHandler.END
 
-    @restricted
     async def arrange_time_chatgpt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = None
         place_holder = None
@@ -254,12 +252,12 @@ class TimeArrangementHandler(Handler):
 
     # input: selected event json
     # output: ask user to select calendar
-    @restricted
     async def selecting_calendar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         orig_text, events_obj, place_holder = context.user_data["message"]
         try:
             if update.callback_query.data != "N":
-                calendar_serv = self.get_calendar_service(update.effective_chat.id)
+                calendar_serv = self.get_calendar_service(
+                    update.effective_chat.id)
                 calender_list = self.list_calendar(calendar_serv)
 
                 keyboard = [[]]
@@ -289,12 +287,12 @@ class TimeArrangementHandler(Handler):
 
     # input: selected calendar
     # output: add event to calendar
-    @restricted
     async def modify_calendar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         orig_text, event_obj, calender_list, message_id = context.user_data["message"]
         try:
             if update.callback_query.data != "N":
-                calendar_serv = self.get_calendar_service(update.effective_chat.id)
+                calendar_serv = self.get_calendar_service(
+                    update.effective_chat.id)
                 event_id = self.modify_calendar(orig_text, event_obj, calender_list[int(
                     update.callback_query.data)]['id'], calendar_serv)
                 await context.bot.edit_message_text(chat_id=update.effective_chat.id, text=f"{event_id}", message_id=message_id)
@@ -356,7 +354,8 @@ class TimeArrangementHandler(Handler):
         try:
             creds = self.update_token_crediential(user_id, None)
         except exceptions.RefreshError:
-            self.c.execute('SELECT token FROM tokens WHERE user_id = ?', (user_id,))
+            self.c.execute(
+                'SELECT token FROM tokens WHERE user_id = ?', (user_id,))
             result = self.c.fetchone()
             if result:
                 creds = self.update_token_crediential(
@@ -407,7 +406,8 @@ class TimeArrangementHandler(Handler):
                 },
             }
 
-            response = service.events().insert(calendarId=calender_id, body=event_dict).execute()
+            response = service.events().insert(
+                calendarId=calender_id, body=event_dict).execute()
             return response.get('id')
 
         except HttpError as error:
