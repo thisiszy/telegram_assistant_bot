@@ -77,6 +77,7 @@ class Auth(Handler):
             PERMISSION_TABLE[user_id].remove(permission)
             logger.debug(f"New permission table: {PERMISSION_TABLE}")
             logger.info(f"Permission {permission} revoked for {user_id}")
+            json.dump(PERMISSION_TABLE, open(PERMISSION_TABLE_PATH, "w"), indent=4)
             await update.message.reply_text(f"Permission {permission} revoked for {user_id}")
         else:
             await update.message.reply_text(f"Permission {permission} not found for {user_id}")

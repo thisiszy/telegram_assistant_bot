@@ -18,7 +18,7 @@ from googleapiclient.errors import HttpError
 from google.auth import exceptions
 
 from tg_bot.core.handler import Handler
-from tg_bot.core.auth import restricted
+from tg_bot.core.auth import restricted_conversation
 from tg_bot.utils.consts import CONFIG_PATH, DB_PATH
 
 logger = logging.getLogger(__name__)
@@ -97,14 +97,14 @@ class TimeArrangementHandler(Handler):
         help_msg += f"    _{command_name}_: {info['commands'][0]['description']}\n"
         return handlers, help_msg
 
-    @restricted
+    @restricted_conversation
     async def schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Send me text or audio, I can arrange time for you.\n\n"
         )
         return WAITING
 
-    @restricted
+    @restricted_conversation
     async def stopschedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Cancels and ends the conversation."""
         await update.message.reply_text(
