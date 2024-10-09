@@ -104,7 +104,6 @@ class TimeArrangementHandler(Handler):
         )
         return WAITING
 
-    @restricted_conversation
     async def stopschedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Cancels and ends the conversation."""
         await update.message.reply_text(
