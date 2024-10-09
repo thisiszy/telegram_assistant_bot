@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telegram-assistant-bot"
+version = "0.1.1"
+requires-python = ">=3.11,<4.0"
+
+[tool.setuptools]
+packages = ["tg_bot"]
+
+[project.scripts]
+tg-assistant-start = "tg_bot.start:main"
