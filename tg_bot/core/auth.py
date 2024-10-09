@@ -3,7 +3,7 @@ import json
 import logging
 
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 
 from tg_bot.utils.consts import PERMISSION_TABLE_PATH
 from tg_bot.core.handler import command_handler, Handler
@@ -25,6 +25,18 @@ def restricted(func):
         else:
             logger.error(f"[Unauthorized access] {user_id} tried to access {func.__name__}")
             return await update.message.reply_text("Unauthorized access denied")
+    return wrapped
+
+def restricted_conversation(func):
+    @wraps(func)
+    async def wrapped(cls, update, context, *args, **kwargs):
+        user_id = str(update.effective_user.id)
+        if user_id in PERMISSION_TABLE and func.__name__ in PERMISSION_TABLE[user_id]:
+            return await func(cls, update, context, *args, **kwargs)
+        else:
+            logger.error(f"[Unauthorized access] {user_id} tried to access {func.__name__}")
+            await update.message.reply_text("Unauthorized access denied")
+            return ConversationHandler.END
     return wrapped
 
 
