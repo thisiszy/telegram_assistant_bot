@@ -40,7 +40,7 @@ class Handler:
                     handlers.append(CommandHandler(command_name, attr))
                     loaded_commands.append(command_name)
                     new_command_name = command_name.replace("_", r"\_")
-                    help_msg += f"  _{new_command_name}_: {description}\n"
+                    help_msg += f"    _{new_command_name}_: {description}\n"
 
         logger.info(
             f"Loaded plugin {self.info['name']}, commands: {loaded_commands}")
