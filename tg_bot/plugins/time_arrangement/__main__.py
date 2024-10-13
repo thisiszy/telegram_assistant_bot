@@ -33,7 +33,7 @@ class CalendarEvent(BaseModel):
     etime: str
 
 
-BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time. 5. If there are multiple different results, you should list them in different lines.'
+BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time. 5. The time zone is UTC+2.'
 
 weekday_dict = {
     0: "Monday",
