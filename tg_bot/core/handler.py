@@ -23,13 +23,11 @@ class Handler:
             "commands": []
         }
 
-    def get_handlers(self, loaded_commands: list[str]) -> tuple[list[CommandHandler], str]:
-        clean_name = self.info['name'].replace("_", r"\_")
-        help_msg = f"*{clean_name}*: \n"
+    def get_handlers(self, loaded_commands: list[str]) -> tuple[list[CommandHandler], dict]:
         handlers = []
-        loaded_commands = []
+        current_loaded_commands = []
         for command in self.info['commands']:
-            command_name, description = command["command"], command["description"]
+            command_name = command["command"]
             if command_name in loaded_commands:
                 logger.error(
                     logging.ERROR, f"Command {command_name} already exists, ignored!")
@@ -40,9 +38,8 @@ class Handler:
                 if callable(attr) and getattr(attr, "command_handler", False) is True:
                     handlers.append(CommandHandler(command_name, attr))
                     loaded_commands.append(command_name)
-                    new_command_name = command_name.replace("_", r"\_")
-                    help_msg += f"    _{new_command_name}_: {description}\n"
+                    current_loaded_commands.append(command_name)
 
         logger.info(
-            f"Loaded plugin {self.info['name']}, commands: {loaded_commands}")
-        return handlers, help_msg
+            f"Loaded plugin {self.info['name']}, commands: {current_loaded_commands}")
+        return handlers, self.info

@@ -13,8 +13,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-help_info = ["No plugins loaded"]
-
 def error(update: Update, context: CallbackContext) -> None:
     """Log Errors caused by Updates."""
     if context.error == NetworkError:

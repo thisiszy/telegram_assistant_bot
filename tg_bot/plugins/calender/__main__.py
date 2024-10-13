@@ -50,7 +50,6 @@ def update_token_crediential(user_id, secret, force_update=False):
             creds.refresh(Request())
         else:
             if secret is not None:
-                breakpoint()
                 flow = InstalledAppFlow.from_client_config(
                     json.loads(secret), SCOPES)
             else:

@@ -80,10 +80,8 @@ class TimeArrangementHandler(Handler):
             (user_id INTEGER PRIMARY KEY, token TEXT, credentials TEXT)
         ''')
 
-    def get_handlers(self, command_list):
-        info = self.info
+    def get_handlers(self, command_list) -> tuple[list[CommandHandler], dict]:
         clean_name = self.info['name'].replace("_", r"\_")
-        help_msg = f"*{clean_name}*: \n"
         handlers = [ConversationHandler(
             entry_points=[CommandHandler("schedule", self.schedule)],
             states={
@@ -93,9 +91,7 @@ class TimeArrangementHandler(Handler):
             },
             fallbacks=[CommandHandler("stopschedule", self.stopschedule)],
         )]
-        command_name = info['commands'][0]['command'].replace("_", r"\_")
-        help_msg += f"    _{command_name}_: {info['commands'][0]['description']}\n"
-        return handlers, help_msg
+        return handlers, self.info
 
     @restricted_conversation
     async def schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
