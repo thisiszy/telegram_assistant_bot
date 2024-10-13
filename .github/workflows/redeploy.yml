@@ -27,6 +27,7 @@ jobs:
         ssh -o StrictHostKeyChecking=no $USER@$SERVER_IP << 'EOF'
           cd /home/$USER/private_bot
           git pull origin master
+          source /home/$USER/private_bot/venv/bin/activate
           pip install -e .
           sudo systemctl restart private_bot.service
         EOF
