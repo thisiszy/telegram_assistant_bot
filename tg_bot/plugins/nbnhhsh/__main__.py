@@ -6,6 +6,8 @@ from telegram.ext import ContextTypes
 
 from tg_bot.core.handler import Handler, command_handler
 
+logger = logging.getLogger(__name__)
+
 
 class NbnhhshQuery(Handler):
     def __init__(self):
@@ -32,32 +34,38 @@ class NbnhhshQuery(Handler):
             return
 
         text = context.args[0].lower()
+        logger.info(f"hhsh query: {text}")
 
         try:
             response = requests.post(
                 "https://lab.magiconch.com/api/nbnhhsh/guess",
                 json={"text": text}
             )
+            logger.debug(f"hhsh response: {response.json()}")
 
             if response.status_code == 200:
                 data = response.json()
                 if not data:
+                    logger.info(f"hhsh response is empty")
                     await update.message.reply_text(f"未找到 '{text}' 的解释")
                     return
 
                 result = data[0]
                 if "trans" not in result or not result["trans"]:
+                    logger.info(f"hhsh response trans is empty")
                     await update.message.reply_text(f"未找到 '{text}' 的解释")
                     return
 
                 translations = "\n".join(
                     [f"• {trans}" for trans in result["trans"]])
+                logger.info(f"hhsh response translations: {translations}")
                 await update.message.reply_text(
                     f"'{text}' 可能的含义：\n{translations}"
                 )
             else:
+                logger.info(f"hhsh response status code: {response.status_code}")
                 await update.message.reply_text("查询失败，请稍后重试")
 
         except Exception as e:
-            logging.error(f"Error in nbnhhsh query: {str(e)}")
+            logger.error(f"Error in nbnhhsh query: {str(e)}")
             await update.message.reply_text("查询时发生错误，请稍后重试")

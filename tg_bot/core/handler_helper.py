@@ -33,14 +33,17 @@ def load_plugins(application: ApplicationBuilder, plugin_dir: Path = DEFAULT_PLU
                                     PACKAGE_PATH.parent).as_posix().replace('/', '.').replace('.py', '')
                                 module = importlib.import_module(plugin_path)
                                 # add commands
-                                plugin: type[Handler] | None = getattr(
-                                    module, node.name, None
-                                )()
-                                handlers, msg = plugin.get_handlers(
-                                    loaded_commands)
-                                help_msgs.append(msg)
-                                for handler in handlers:
-                                    application.add_handler(handler)
+                                try:
+                                    plugin: type[Handler] | None = getattr(
+                                        module, node.name, None
+                                    )()
+                                    handlers, msg = plugin.get_handlers(
+                                        loaded_commands)
+                                    help_msgs.append(msg)
+                                    for handler in handlers:
+                                        application.add_handler(handler)
+                                except Exception as e:
+                                    logger.error(f"Error loading plugin {plugin_main}: {e}")
             except SyntaxError:
                 logger.error(f"Error parsing {plugin_main}. Skipping...")
     return help_msgs

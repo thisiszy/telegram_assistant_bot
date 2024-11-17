@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from tg_bot.core.handler import Handler, command_handler
+from tg_bot.core.auth import restricted
 
 
 class Help(Handler):
@@ -31,5 +32,6 @@ class Help(Handler):
         }
 
     @command_handler
+    @restricted
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=self.help_text, parse_mode="MarkdownV2")
