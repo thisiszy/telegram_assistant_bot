@@ -154,7 +154,7 @@ class TimeArrangementHandler(Handler):
                 logger.info(f"Response: {completion}")
                 keyboard = [[]]
                 events_obj: list[CalendarEvent] = []
-                events_text = []
+                events_text = [f"Time Zone: {TIMEZONE}"]
                 for choice in completion.choices:
                     parsed_msg = choice.message.parsed
                     if parsed_msg is not None:
