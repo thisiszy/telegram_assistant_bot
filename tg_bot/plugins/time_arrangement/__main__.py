@@ -35,7 +35,7 @@ class CalendarEvent(BaseModel):
 
 TIMEZONE = "CET"
 
-BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be convert to UTC time zone with format "yyyy-mm-ddThh:mm:ssZ". Current time is {1} in {3} time zone, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time.'
+BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be convert to UTC time zone with format "yyyy-mm-ddThh:mm:ssZ". Without further information, you should assume the time zone in the sentence is {3}. 4. Current time is {1} in {3} time zone, it\'s {2}. 5. By default, assume the end time is one hour later than the start time.'
 
 WEEKDAY_DICT = {
     0: "Monday",
@@ -311,33 +311,15 @@ class TimeArrangementHandler(Handler):
 
     def modify_calendar(self, orig_text, event: CalendarEvent, calender_id, service):
         try:
-            # get the local time zone
-            timezone = datetime.now().astimezone().tzinfo
-            timezone_str = str(get_localzone())
-
-            # get the current UTC offset for the local time zone
-            utc_offset = timezone.utcoffset(
-                datetime.now()).total_seconds() / 3600
-
-            # format the offset as a string
-            offset_str = "{:+03d}:00".format(int(utc_offset))
-            # format the datetime object as a string in the desired format
-
-            def format_datetime(time: str) -> str:
-                dt = datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
-                return dt.strftime("%Y-%m-%dT%H:%M:%S") + offset_str
-
             event_dict = {
                 'summary': event.name,
                 'location': event.place,
                 'description': orig_text,
                 'start': {
-                    'dateTime': format_datetime(event.stime),
-                    'timeZone': timezone_str,
+                    'dateTime': event.stime,
                 },
                 'end': {
-                    'dateTime': format_datetime(event.etime),
-                    'timeZone': timezone_str,
+                    'dateTime': event.etime,
                 },
                 'reminders': {
                     'useDefault': False,
