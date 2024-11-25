@@ -35,7 +35,7 @@ class CalendarEvent(BaseModel):
 
 TIMEZONE = "CET"
 
-BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be convert to UTC time zone with format "{yyyy}-{mm}-{dd}T{hh}:{mm}:{ss}Z". Current time is {1} in {3} time zone, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time.'
+BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be convert to UTC time zone with format "yyyy-mm-ddThh:mm:ssZ". Current time is {1} in {3} time zone, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time.'
 
 WEEKDAY_DICT = {
     0: "Monday",
