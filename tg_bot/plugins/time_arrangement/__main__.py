@@ -33,9 +33,11 @@ class CalendarEvent(BaseModel):
     etime: str
 
 
-BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be represented by "yyyy-mm-dd hh:mm:ss" in 24-hour clock format. Current time is {1}, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time. 5. The time zone is UTC+2.'
+TIMEZONE = "CET"
 
-weekday_dict = {
+BASE_PROMPT = 'Extract the activity or event name, place, start time, end time in the format "{{"name":  "", "place": "", "stime": "", "etime": ""}}" from the following sentence: "{0}". The output should obey the following rules: 1. If any of the item is empty, use "None" to replace it. 2. name, "start time" and "end time" is mandatory. 3. "start time" and "end time" should be convert to UTC time zone with format "{yyyy}-{mm}-{dd}T{hh}:{mm}:{ss}Z". Current time is {1} in {3} time zone, it\'s {2}. 4. If there is no end time, you should assume the end time is one hour later than the start time.'
+
+WEEKDAY_DICT = {
     0: "Monday",
     1: "Tuesday",
     2: "Wednesday",
@@ -57,9 +59,13 @@ class TimeArrangementHandler(Handler):
                 {
                     "command": "time_arrangement",
                     "description": "arrange time by text and voice, use /schedule to start, use /stopschedule to stop"
+                },
+                {
+                    "command": "set_timezone",
+                    "description": "set the timezone for the user, use /set_timezone <timezone> to set"
                 }
             ],
-            "message_type": ["text", "audio"]
+            "message_type": ["text"]
         }
 
     def __init__(self):
@@ -81,7 +87,10 @@ class TimeArrangementHandler(Handler):
         ''')
 
     def get_handlers(self, command_list) -> tuple[list[CommandHandler], dict]:
-        clean_name = self.info['name'].replace("_", r"\_")
+        if "set_timezone" in command_list or "schedule" in command_list:
+            logger.error(
+                logging.ERROR, f"Command 'set_timezone' or 'schedule' already exists, ignored!")
+            return [], {}
         handlers = [ConversationHandler(
             entry_points=[CommandHandler("schedule", self.schedule)],
             states={
@@ -90,13 +99,22 @@ class TimeArrangementHandler(Handler):
                 ADDING: [CallbackQueryHandler(self.modify_calendar_callback)],
             },
             fallbacks=[CommandHandler("stopschedule", self.stopschedule)],
-        )]
+        ),
+            CommandHandler("set_timezone", self.set_timezone)
+        ]
         return handlers, self.info
+
+    @restricted_conversation
+    async def set_timezone(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        TIMEZONE = context.args[0]
+        await update.message.reply_text(
+            f"Timezone set to {TIMEZONE}"
+        )
 
     @restricted_conversation
     async def schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
-            "Send me text or audio, I can arrange time for you.\n\n"
+            "Send me text, I can arrange time for you.\n\n"
         )
         return WAITING
 
@@ -107,77 +125,6 @@ class TimeArrangementHandler(Handler):
         )
         return ConversationHandler.END
 
-    async def arrange_time_gpt3(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        prompt = None
-        place_holder = None
-        try:
-            if update.message.text is not None:
-                prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime(
-                    "%Y-%m-%d %H:%M:%S"), weekday_dict[datetime.weekday(datetime.now())])
-            if update.message.voice is not None:
-                place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Converting...", reply_to_message_id=update.message.message_id)
-                file = await update.message.voice.get_file()
-                audio_file_path = os.path.join(AUDIO_FILE_PATH, file.file_id)
-                await file.download_to_drive(audio_file_path)
-                logging.log(
-                    logging.INFO, f"Received audio file: {audio_file_path}")
-                model = whisper.load_model(
-                    "small", download_root="env/share/whisper")
-                result = model.transcribe(audio_file_path)
-                logging.log(logging.INFO, f"Recognized text: {result['text']}")
-                prompt = BASE_PROMPT.format(result["text"], datetime.now().strftime(
-                    "%Y-%m-%d %H:%M:%S"), weekday_dict[datetime.weekday(datetime.now())])
-            if prompt is not None:
-                if place_holder is not None:
-                    await context.bot.edit_message_text(
-                        chat_id=place_holder.chat_id, message_id=place_holder.message_id, text="Parsing..."
-                    )
-                else:
-                    place_holder = await context.bot.send_message(chat_id=update.effective_chat.id, text="Parsing...", reply_to_message_id=update.message.message_id)
-                gpt_model = "text-davinci-003"
-                temperature = 0.5
-                max_tokens = 4000
-
-                # Generate a response
-                response = openai.Completion.create(
-                    engine=gpt_model,
-                    prompt=prompt,
-                    temperature=temperature,
-                    max_tokens=max_tokens
-                )
-                response = response.choices[0].text.strip()
-                logging.info(f"Response: {response}")
-                response = response.replace("\n", "")
-                pattern = re.compile(
-                    r'{ *"name":.*, *"place":.*, *"stime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *, *"etime": *"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}" *}', flags=0)
-                matched = pattern.findall(response)
-                if len(matched) > 0:
-                    keyboard = [
-                        [
-                            InlineKeyboardButton("Apply", callback_data="Y"),
-                            InlineKeyboardButton("Cancel", callback_data="N"),
-                        ]
-                    ]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    context.user_data["message"] = (
-                        update.message.text, matched[-1], place_holder.message_id)
-                    await context.bot.edit_message_text(
-                        chat_id=place_holder.chat_id,
-                        message_id=place_holder.message_id,
-                        text=matched[-1],
-                        reply_markup=reply_markup
-                    )
-                    return ADDING
-                else:
-                    await context.bot.edit_message_text(
-                        chat_id=place_holder.chat_id, message_id=place_holder.message_id, text=f"Not matched: {response}\nExit conversation"
-                    )
-                    return ConversationHandler.END
-        except Exception as e:
-            logger.error(f"Error: {e}")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Error f{e}\nExit conversation", reply_to_message_id=update.message.message_id)
-            return ConversationHandler.END
-
     async def arrange_time_chatgpt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = None
         place_holder = None
@@ -185,7 +132,7 @@ class TimeArrangementHandler(Handler):
         try:
             if update.message.text is not None:
                 prompt = BASE_PROMPT.format(update.message.text, datetime.now().strftime(
-                    "%Y-%m-%d %H:%M:%S"), weekday_dict[datetime.weekday(datetime.now())])
+                    "%Y-%m-%d %H:%M:%S"), WEEKDAY_DICT[datetime.weekday(datetime.now())], TIMEZONE)
             if prompt is not None:
                 logger.debug(f"Prompt: {prompt}")
                 if place_holder is not None:
