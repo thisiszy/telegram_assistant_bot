@@ -133,7 +133,7 @@ class eth_mensa:
             formatted_text = ""
             if 'opening-hour-array' in target_day_menus:
                 for opening_hours in target_day_menus['opening-hour-array']:
-                    if opening_hours['meal-time-array'] != []:
+                    if "meal-time-array" in opening_hours and opening_hours['meal-time-array'] != []:
                         formatted_text += "*{title}*\n".format(
                             title=self.id_to_eth_mensa[item['facility-id']]['facility-name'])
                         for opening_hour in opening_hours['meal-time-array']:
@@ -147,6 +147,11 @@ class eth_mensa:
                                             [str(price['price']) for price in meal['meal']['meal-price-array']]))
                                         formatted_text += "  {description}\n".format(
                                             description=meal['meal']['description'].replace("\n", " "))
+                    if "time-from" in opening_hours and "time-to" in opening_hours:
+                        formatted_text += "*{title}*\n".format(
+                            title=self.id_to_eth_mensa[item['facility-id']]['facility-name'])
+                        formatted_text += "Open from {time_from} to {time_to}\n".format(
+                            time_from=opening_hours['time-from'], time_to=opening_hours['time-to'])
                     else:
                         is_open = False
             else:
@@ -174,6 +179,52 @@ class MensaHandler(Handler):
             ]
         }
 
+    @staticmethod
+    def get_msg(args) -> str:
+        args.location = args.location.lower()
+        if args.location == 'all':
+            args.location = None
+
+        if args.day is None:
+            target_date = datetime.date.today()
+        else:
+            target_date = datetime.datetime.strptime(
+                args.day, "%Y-%m-%d").date()
+        weekday = target_date.weekday()
+
+        emensa = eth_mensa(args)
+        umensa = uzh_mensa(args)
+
+        emensa_list = emensa.print_eth_menus(target_date, args.location)
+        logging.log(logging.INFO, emensa_list)
+        umensa_list = umensa.print_uzh_menus(target_date, args.location)
+        logging.log(logging.INFO, umensa_list)
+
+        # msg = emsg + umsg
+        mensa_list = emensa_list + umensa_list
+        msg = ""
+        for mensa in mensa_list:
+            if mensa['status'] == 'ok':
+                # next_msg = mensa['text']
+                # if len(msg + next_msg) > 4000:
+                #     msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace(
+                #         "(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
+                #     # await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
+                #     msg = next_msg
+
+                msg += mensa['text'] + "\n"
+            else:
+                msg = mensa['status']
+                break
+        if len(mensa_list) == 0:
+            msg = "No menu found"
+        elif len(msg) > 0:
+            msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace(
+                "(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
+        else:
+            msg = "msg is empty"
+        return msg
+
     @command_handler
     async def mensa(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(context.args) < 1:
@@ -190,49 +241,33 @@ class MensaHandler(Handler):
                             default='en', help="en or de")
         try:
             args = parser.parse_args(args_list)
-            args.location = args.location.lower()
-            if args.location == 'all':
-                args.location = None
-
-            if args.day is None:
-                target_date = datetime.date.today()
-            else:
-                target_date = datetime.datetime.strptime(
-                    args.day, "%Y-%m-%d").date()
-            weekday = target_date.weekday()
-
-            emensa = eth_mensa(args)
-            umensa = uzh_mensa(args)
-
-            emensa_list = emensa.print_eth_menus(target_date, args.location)
-            logging.log(logging.INFO, emensa_list)
-            umensa_list = umensa.print_uzh_menus(target_date, args.location)
-            logging.log(logging.INFO, umensa_list)
-
-            # msg = emsg + umsg
-            mensa_list = emensa_list + umensa_list
-            msg = ""
-            for mensa in mensa_list:
-                if mensa['status'] == 'ok':
-                    next_msg = mensa['text']
-                    if len(msg + next_msg) > 4000:
-                        msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace(
-                            "(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
-                        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
-                        msg = next_msg
-
-                    msg += next_msg + "\n"
+            msg = MensaHandler.get_msg(args)
+            while len(msg) > 0:
+                if len(msg) > 4000:
+                    # find the last newline character before 4000th character
+                    last_newline = msg[:4000].rfind("\n")
                 else:
-                    msg = mensa['status']
-                    break
-            if len(mensa_list) == 0:
-                msg = "No menu found"
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
-            elif len(msg) > 0:
-                msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace(
+                    last_newline = len(msg)
+                msg_seg = msg[:last_newline]
+                msg_seg = msg_seg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace(
                     "(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg_seg, parse_mode="MarkdownV2")
+                msg = msg[last_newline+1:]
         except SystemExit:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Argument Error: Use /mensa [location] command to check todays menu")
         except Exception as e:
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f'An error occurred: {e}')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('location', type=str, default=None,
+                        help="Search any keywords that related to the mensa(use 'all' to print all mensas), e.g.: zentrum, poly, claus, irchel")
+    parser.add_argument('-d', '--day', type=str,
+                        default=None, help="YYYY-MM-DD")
+    parser.add_argument('-l', '--lang', type=str,
+                        default='en', help="en or de")
+    args = parser.parse_args()
+
+    msg = MensaHandler.get_msg(args)
+    print(msg)
