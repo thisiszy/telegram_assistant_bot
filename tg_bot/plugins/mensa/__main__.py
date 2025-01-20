@@ -147,11 +147,6 @@ class eth_mensa:
                                             [str(price['price']) for price in meal['meal']['meal-price-array']]))
                                         formatted_text += "  {description}\n".format(
                                             description=meal['meal']['description'].replace("\n", " "))
-                    if "time-from" in opening_hours and "time-to" in opening_hours:
-                        formatted_text += "*{title}*\n".format(
-                            title=self.id_to_eth_mensa[item['facility-id']]['facility-name'])
-                        formatted_text += "Open from {time_from} to {time_to}\n".format(
-                            time_from=opening_hours['time-from'], time_to=opening_hours['time-to'])
                     else:
                         is_open = False
             else:
@@ -205,13 +200,6 @@ class MensaHandler(Handler):
         msg = ""
         for mensa in mensa_list:
             if mensa['status'] == 'ok':
-                # next_msg = mensa['text']
-                # if len(msg + next_msg) > 4000:
-                #     msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace(
-                #         "(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
-                #     # await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="MarkdownV2")
-                #     msg = next_msg
-
                 msg += mensa['text'] + "\n"
             else:
                 msg = mensa['status']
