@@ -218,11 +218,6 @@ class MensaHandler(Handler):
                 break
         if len(mensa_list) == 0:
             msg = "No menu found"
-        elif len(msg) > 0:
-            msg = msg.replace("-", r"\-").replace("|", r"\|").replace("!", r"\!").replace(
-                "(", r"\(").replace(")", r"\)").replace("+", r"\+").replace(".", r"\.")
-        else:
-            msg = "msg is empty"
         return msg
 
     @command_handler
