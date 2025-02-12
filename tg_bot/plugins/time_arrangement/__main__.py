@@ -5,8 +5,6 @@ import logging
 import configparser
 from datetime import datetime
 import json
-from tzlocal import get_localzone
-import re
 import openai
 from pydantic import BaseModel
 # use google calendar
@@ -62,7 +60,7 @@ class TimeArrangementHandler(Handler):
                 },
                 {
                     "command": "set_timezone",
-                    "description": "set the timezone for the user, use /set_timezone <timezone> to set"
+                    "description": "set the timezone for the user, use /set\_timezone <timezone\> to set"
                 }
             ],
             "message_type": ["text"]
@@ -144,7 +142,7 @@ class TimeArrangementHandler(Handler):
 
                 logger.info(f"Prompt: {prompt}")
                 completion = completion = self.client.beta.chat.completions.parse(
-                    model="gpt-4o-mini-2024-07-18",
+                    model="gpt-4o-mini",
                     messages=[
                         {"role": "system", "content": f"{prompt}"},
                     ],

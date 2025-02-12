@@ -20,6 +20,7 @@ dependencies = [
     "python-telegram-bot",
     "regex",
     "requests",
+    "aisuite[openai]",
     # "torch",
     "tqdm",
     "tzlocal",
