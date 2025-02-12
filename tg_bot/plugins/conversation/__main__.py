@@ -77,7 +77,6 @@ class LLMConversationHandler(Handler):
         )
         return ConversationHandler.END
 
-    @restricted_conversation
     async def chat_with_llm(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             user_prompt = update.message.text
