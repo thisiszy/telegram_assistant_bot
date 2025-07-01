@@ -268,13 +268,33 @@ class Calendar(Handler):
             service = build("calendar", "v3", credentials=creds)
             try:
                 calendar_list = service.calendarList().list(pageToken=None).execute()
-                calendar_id = calendar_list["items"][0]["id"]
-                service.events().delete(
-                    calendarId=calendar_id, eventId=event_id
-                ).execute()
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id, text="Event deleted"
-                )
+                found: bool = False
+                for calendar in calendar_list["items"]:
+                    calendar_id = calendar["id"]
+                    try:
+                        service.events().get(
+                            calendarId=calendar_id, eventId=event_id
+                        ).execute()
+                    except HttpError as error:
+                        if error.resp.status == 404:
+                            continue  # Event not found in this calendar
+                        else:
+                            raise error
+                    service.events().delete(
+                        calendarId=calendar_id, eventId=event_id
+                    ).execute()
+                    found = True
+                    break  # Exit after deleting the event from the first calendar found
+                if not found:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text="Event not found in any calendar",
+                    )
+                else:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=f"Event {event_id} deleted",
+                    )
             except Exception as error:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id, text=f"An error occurred: {error}"
