@@ -14,7 +14,7 @@ from tg_bot.core.auth import Auth
 logger = logging.getLogger(__name__)
 
 
-def load_plugins(application: ApplicationBuilder, plugin_dir: Path = DEFAULT_PLUGIN_DIR) -> list[dict]:
+def load_plugins(application: ApplicationBuilder, config_dir: Path, plugin_dir: Path = DEFAULT_PLUGIN_DIR) -> list[dict]:
     loaded_commands = []
     help_msgs = []
     for base_folder in plugin_dir.iterdir():
@@ -36,7 +36,7 @@ def load_plugins(application: ApplicationBuilder, plugin_dir: Path = DEFAULT_PLU
                                 try:
                                     plugin: type[Handler] | None = getattr(
                                         module, node.name, None
-                                    )()
+                                    )(config_dir)
                                     handlers, msg = plugin.get_handlers(
                                         loaded_commands)
                                     help_msgs.append(msg)
@@ -49,13 +49,13 @@ def load_plugins(application: ApplicationBuilder, plugin_dir: Path = DEFAULT_PLU
     return help_msgs
 
 
-def add_handlers(application: Application):
-    help_msg = load_plugins(application)
+def add_handlers(application: Application, config_dir: Path):
+    help_msg = load_plugins(application, config_dir = config_dir)
     help = Help(help_msg)
     echo_handler = CommandHandler("help", help.help)
     application.add_handler(echo_handler)
 
-    auth = Auth()
+    auth = Auth(config_dir)
     add_permission_handler = CommandHandler("add_permission", auth.add_permission)
     application.add_handler(add_permission_handler)
     revoke_permission_handler = CommandHandler("revoke_permission", auth.revoke_permission)

@@ -7,17 +7,9 @@ from telegram.ext import ContextTypes, CommandHandler, filters, ConversationHand
 
 from tg_bot.core.handler import Handler
 from tg_bot.core.auth import restricted_conversation
-from tg_bot.utils.consts import CONFIG_PATH
 
 logger = logging.getLogger(__name__)
 CHATTING = 1
-
-config = configparser.ConfigParser()
-config.read(CONFIG_PATH)
-MODEL = "openai:gpt-4o-mini"
-PROVIDOR_CONFIGS = {
-    "openai": {"api_key": config['OPENAI']['API_KEY']},
-}
 
 
 class LLMConversationHandler(Handler):
@@ -40,8 +32,14 @@ class LLMConversationHandler(Handler):
             "message_type": ["text"]
         }
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        config = configparser.ConfigParser()
+        config.read(self.CONFIG_FOLDER / "config.ini")
+        self.MODEL = "openai:gpt-4o-mini"
+        PROVIDOR_CONFIGS = {
+            "openai": {"api_key": config['OPENAI']['API_KEY']},
+        }
         self.client = ai.Client(PROVIDOR_CONFIGS)
         self.conversations: dict[int, list[dict[str, str]]] = {}
 
@@ -90,7 +88,7 @@ class LLMConversationHandler(Handler):
             messages.append({"role": "user", "content": f"{user_prompt}"})
             try:
                 response = self.client.chat.completions.create(
-                    model=MODEL,
+                    model=self.MODEL,
                     messages=messages,
                 )
                 # print(response.choices[0].message.content)

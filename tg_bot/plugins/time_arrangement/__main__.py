@@ -1,10 +1,11 @@
-import sqlite3
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes, CommandHandler, filters, ConversationHandler, MessageHandler, CallbackQueryHandler
 import logging
 import configparser
 from datetime import datetime
 import json
+
+import sqlite3
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes, CommandHandler, filters, ConversationHandler, MessageHandler, CallbackQueryHandler
 import openai
 from pydantic import BaseModel
 # use google calendar
@@ -17,7 +18,6 @@ from google.auth import exceptions
 
 from tg_bot.core.handler import Handler
 from tg_bot.core.auth import restricted_conversation
-from tg_bot.utils.consts import CONFIG_PATH, DB_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +66,10 @@ class TimeArrangementHandler(Handler):
             "message_type": ["text"]
         }
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         config = configparser.ConfigParser()
-        config.read(CONFIG_PATH)
+        config.read(self.CONFIG_FOLDER / "config.ini")
         token = config['OPENAI']['API_KEY']
         self.client = openai.OpenAI(api_key=token)
 
@@ -77,7 +77,7 @@ class TimeArrangementHandler(Handler):
         self.SCOPES = ['https://www.googleapis.com/auth/calendar']
 
         # Set up the SQLite database
-        self.conn = sqlite3.connect(DB_PATH)
+        self.conn = sqlite3.connect(self.CONFIG_FOLDER / "storage.db")
         self.c = self.conn.cursor()
         self.c.execute('''
             CREATE TABLE IF NOT EXISTS tokens

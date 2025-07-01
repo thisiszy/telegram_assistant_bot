@@ -1,4 +1,4 @@
-import logging
+from pathlib import Path
 import re
 
 import requests
@@ -8,14 +8,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from tg_bot.core.handler import Handler, command_handler
-from tg_bot.utils.consts import DB_PATH
 
 
 class CurrencyQuery(Handler):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Set up the SQLite database
-        self.conn = sqlite3.connect(DB_PATH)
+        self.conn = sqlite3.connect(self.CONFIG_FOLDER / "storage.db")
         self.c = self.conn.cursor()
         self.c.execute('''
             CREATE TABLE IF NOT EXISTS currency

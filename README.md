@@ -13,7 +13,7 @@ pip install -e .
 ## Edit config file
 
 ```bash
-touch tg_bot/configs/config.ini
+touch configs/config.ini
 ```
 
 The config file should contain the following part.
@@ -32,7 +32,7 @@ BASE_PATH = <Path to where you want to store the video files and caption files(r
 ## Start the bot
 
 ```bash
-python tg-assistant-start
+tg-assistant-start --config-dir configs
 ```
 
 # Plugin framework

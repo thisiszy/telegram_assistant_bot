@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from telegram.ext import CommandHandler
 
 logger = logging.getLogger(__name__)
@@ -10,8 +11,8 @@ def command_handler(func):
 
 
 class Handler:
-    def __init__(self):
-        pass
+    def __init__(self, config_dir: Path):
+        self.CONFIG_FOLDER = config_dir
 
     @property
     def info(self):

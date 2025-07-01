@@ -1,0 +1,14 @@
+[Unit]
+Description=Start bot program
+After=network.target
+
+[Service]
+User=<USER>
+WorkingDirectory=<REPO_DIR>
+ExecStart=/bin/bash -c 'source <REPO_DIR>/venv/bin/activate && tg-assistant-start --config-dir <REPO_DIR>/configs'
+Restart=on-failure
+StandardOutput=file:/var/log/bot/bot.out.log
+StandardError=file:/var/log/bot/bot.err.log
+
+[Install]
+WantedBy=multi-user.target
